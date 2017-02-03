@@ -5,7 +5,7 @@ import Main from '../components/Main.jsx';
 class MainContainer extends React.Component {
 
   constructor() {
-		super();
+		super();    
 		this.state = {
         stocks: ["AAPL"]
 			};
@@ -17,12 +17,16 @@ class MainContainer extends React.Component {
       if (err) console.log(err);
       console.log(data);
     })
+  }  
+
+  handleAdd(newCode) {
+    console.log("from MainContainer", newCode);
   }
 
   render() {
     return (
       <div>
-        <Main />
+        <Main onAdd={this.handleAdd} />
       </div>
     )
   }

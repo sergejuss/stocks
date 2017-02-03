@@ -21559,12 +21559,17 @@
 	      });
 	    }
 	  }, {
+	    key: 'handleAdd',
+	    value: function handleAdd(newCode) {
+	      console.log("from MainContainer", newCode);
+	    }
+	  }, {
 	    key: 'render',
 	    value: function render() {
 	      return _react2.default.createElement(
 	        'div',
 	        null,
-	        _react2.default.createElement(_Main2.default, null)
+	        _react2.default.createElement(_Main2.default, { onAdd: this.handleAdd })
 	      );
 	    }
 	  }]);
@@ -22236,6 +22241,8 @@
 	  value: true
 	});
 
+	var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
+
 	var _react = __webpack_require__(2);
 
 	var _react2 = _interopRequireDefault(_react);
@@ -22258,14 +22265,57 @@
 
 	function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
 
-	var Main = function Main(props) {
-	  return _react2.default.createElement(
-	    'div',
-	    { className: 'main-container' },
-	    _react2.default.createElement(_Chart2.default, null),
-	    _react2.default.createElement(_StockContainer2.default, null),
-	    _react2.default.createElement(_Footer2.default, null)
-	  );
+	function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
+
+	function _possibleConstructorReturn(self, call) { if (!self) { throw new ReferenceError("this hasn't been initialised - super() hasn't been called"); } return call && (typeof call === "object" || typeof call === "function") ? call : self; }
+
+	function _inherits(subClass, superClass) { if (typeof superClass !== "function" && superClass !== null) { throw new TypeError("Super expression must either be null or a function, not " + typeof superClass); } subClass.prototype = Object.create(superClass && superClass.prototype, { constructor: { value: subClass, enumerable: false, writable: true, configurable: true } }); if (superClass) Object.setPrototypeOf ? Object.setPrototypeOf(subClass, superClass) : subClass.__proto__ = superClass; }
+
+	var Main = function (_React$Component) {
+	  _inherits(Main, _React$Component);
+
+	  function Main() {
+	    _classCallCheck(this, Main);
+
+	    var _this = _possibleConstructorReturn(this, (Main.__proto__ || Object.getPrototypeOf(Main)).call(this));
+
+	    _this.handleAdd = _this.handleAdd.bind(_this);
+	    return _this;
+	  }
+
+	  _createClass(Main, [{
+	    key: 'handleAdd',
+	    value: function handleAdd(newCode) {
+	      this.props.onAdd(newCode);
+	    }
+	  }, {
+	    key: 'render',
+	    value: function render() {
+	      return _react2.default.createElement(
+	        'div',
+	        null,
+	        _react2.default.createElement(
+	          'div',
+	          { className: 'row' },
+	          _react2.default.createElement('div', { className: 'col-m-1 col-2', style: { height: "10px" } }),
+	          _react2.default.createElement(
+	            'div',
+	            { className: 'col-m-10 col-8', style: { backgroundColor: "yellow" } },
+	            _react2.default.createElement(_Chart2.default, null),
+	            _react2.default.createElement(_StockContainer2.default, { onAdd: this.handleAdd })
+	          ),
+	          _react2.default.createElement('div', { className: 'col-m-1 col-2', style: { height: "10px" } })
+	        ),
+	        _react2.default.createElement(_Footer2.default, null)
+	      );
+	    }
+	  }]);
+
+	  return Main;
+	}(_react2.default.Component);
+
+	Main.propTypes = {
+	  onAdd: _react.PropTypes.func.isRequired
 	};
 
 	exports.default = Main;
@@ -22350,14 +22400,8 @@
 	var Chart = function Chart(props) {
 	  return _react2.default.createElement(
 	    'div',
-	    { className: 'row' },
-	    _react2.default.createElement('div', { className: 'col-m-1 col-2', style: { height: "10px" } }),
-	    _react2.default.createElement(
-	      'div',
-	      { className: 'col-m-10 col-8', style: { height: "400px" } },
-	      _react2.default.createElement(_ReactHighstock2.default, { config: config })
-	    ),
-	    _react2.default.createElement('div', { className: 'col-m-1 col-2', style: { height: "10px" } })
+	    { style: { height: "400px" } },
+	    _react2.default.createElement(_ReactHighstock2.default, { config: config })
 	  );
 	};
 
@@ -23340,32 +23384,35 @@
 
 	    var _this = _possibleConstructorReturn(this, (StockContainer.__proto__ || Object.getPrototypeOf(StockContainer)).call(this));
 
-	    _this.State = {};
+	    _this.handleAdd = _this.handleAdd.bind(_this);
 	    return _this;
 	  }
 
 	  _createClass(StockContainer, [{
+	    key: 'handleAdd',
+	    value: function handleAdd(newCode) {
+	      this.props.onAdd(newCode);
+	    }
+	  }, {
 	    key: 'render',
 	    value: function render() {
 	      return _react2.default.createElement(
 	        'div',
-	        { className: 'row' },
-	        _react2.default.createElement('div', { className: 'col-m-1 col-2', style: { height: "10px" } }),
-	        _react2.default.createElement(
-	          'div',
-	          { className: 'col-m-10 col-8', style: { backgroundColor: "blue" } },
-	          _react2.default.createElement(_StockBox2.default, null),
-	          _react2.default.createElement(_StockBox2.default, null),
-	          _react2.default.createElement(_StockBox2.default, null),
-	          _react2.default.createElement(_InputBox2.default, null)
-	        ),
-	        _react2.default.createElement('div', { className: 'col-m-1 col-2', style: { height: "10px" } })
+	        null,
+	        _react2.default.createElement(_StockBox2.default, null),
+	        _react2.default.createElement(_StockBox2.default, null),
+	        _react2.default.createElement(_StockBox2.default, null),
+	        _react2.default.createElement(_InputBox2.default, { onAdd: this.handleAdd })
 	      );
 	    }
 	  }]);
 
 	  return StockContainer;
 	}(_react2.default.Component);
+
+	StockContainer.propTypes = {
+	  onAdd: _react.PropTypes.func.isRequired
+	};
 
 	exports.default = StockContainer;
 
@@ -23489,10 +23536,30 @@
 	    function InputBox() {
 	        _classCallCheck(this, InputBox);
 
-	        return _possibleConstructorReturn(this, (InputBox.__proto__ || Object.getPrototypeOf(InputBox)).apply(this, arguments));
+	        var _this = _possibleConstructorReturn(this, (InputBox.__proto__ || Object.getPrototypeOf(InputBox)).call(this));
+
+	        _this.handleChange = _this.handleChange.bind(_this);
+	        _this.handleAdd = _this.handleAdd.bind(_this);
+	        _this.state = {
+	            newCode: ""
+	        };
+	        return _this;
 	    }
 
 	    _createClass(InputBox, [{
+	        key: "handleChange",
+	        value: function handleChange(e) {
+	            this.setState({
+	                newCode: e.target.value
+	            });
+	        }
+	    }, {
+	        key: "handleAdd",
+	        value: function handleAdd(e) {
+	            e.preventDefault();
+	            this.props.onAdd(this.state.newCode);
+	        }
+	    }, {
 	        key: "render",
 	        value: function render() {
 	            return _react2.default.createElement(
@@ -23506,12 +23573,13 @@
 	                        { style: { padding: "20px 0 0 20px", fontFamily: "Verdana" } },
 	                        "Syncs in realtime across clients"
 	                    ),
-	                    _react2.default.createElement("input", { placeholder: "Stock code", type: "text", style: { margin: "0 0 0 20px", height: "40px",
+	                    _react2.default.createElement("input", { placeholder: "Stock code", type: "text", value: this.state.newCode, onChange: this.handleChange, style: { margin: "0 0 0 20px", height: "40px",
 	                            fontSize: "1.1em", fontFamily: "Verdana", borderRadius: "6px" } }),
 	                    _react2.default.createElement(
 	                        "button",
-	                        { style: { margin: "0 0 0 20px", width: "60px", height: "40px", fontSize: "1em", fontFamily: "Verdana",
-	                                borderRadius: "6px", backgroundColor: "#5CB85C", color: "#fff" } },
+	                        { style: { margin: "0 0 0 20px", width: "60px", height: "40px",
+	                                fontSize: "1em", fontFamily: "Verdana", borderRadius: "6px", backgroundColor: "#5CB85C",
+	                                color: "#fff" }, onClick: this.handleAdd },
 	                        "Add"
 	                    )
 	                )
@@ -23522,7 +23590,9 @@
 	    return InputBox;
 	}(_react.Component);
 
-	InputBox.propTypes = {};
+	InputBox.propTypes = {
+	    onAdd: _react.PropTypes.func.isRequired
+	};
 
 	exports.default = InputBox;
 

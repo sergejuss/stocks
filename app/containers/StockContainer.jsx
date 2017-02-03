@@ -5,26 +5,28 @@ import InputBox from '../components/InputBox.jsx';
 class StockContainer extends React.Component {
 
   constructor() {
-    super();
-    this.State = {
-
-    };
+    super();    
+    this.handleAdd = this.handleAdd.bind(this);    
+  }
+  
+  handleAdd(newCode) {        
+    this.props.onAdd(newCode);
   }
 
   render() {
     return (
-    <div className="row">
-      <div className="col-m-1 col-2" style={{height: "10px"}}></div>
-      <div className="col-m-10 col-8" style={{backgroundColor: "blue"}}>
-          <StockBox />
-          <StockBox />
-          <StockBox />
-          <InputBox />
-      </div>
-      <div className="col-m-1 col-2" style={{height: "10px"}}></div>
+    <div>            
+      <StockBox />
+      <StockBox />
+      <StockBox />
+      <InputBox onAdd={this.handleAdd}/>    
     </div>
     )
   }
+}
+
+StockContainer.propTypes = {
+  onAdd: PropTypes.func.isRequired
 }
 
 export default StockContainer;

@@ -34,13 +34,9 @@ var config = {
 };
 
 const Chart = (props) => {
-  return (
-    <div className="row">
-      <div className="col-m-1 col-2" style={{height: "10px"}}></div>
-      <div className="col-m-10 col-8" style={{height: "400px"}}>
-          <ReactHighstock config={config}></ReactHighstock>
-      </div>
-      <div className="col-m-1 col-2" style={{height: "10px"}}></div>
+  return (       
+    <div style={{height: "400px"}}>
+        <ReactHighstock config={config}></ReactHighstock>
     </div>
   )
 }
