@@ -21543,8 +21543,15 @@
 
 	    var _this = _possibleConstructorReturn(this, (MainContainer.__proto__ || Object.getPrototypeOf(MainContainer)).call(this));
 
+	    _this.handleAdd = _this.handleAdd.bind(_this);
+	    _this.handleDel = _this.handleDel.bind(_this);
+	    _this.handleLookup = _this.handleLookup.bind(_this);
+	    _this.handleAddRef = _this.handleAddRef.bind(_this);
 	    _this.state = {
-	      stocks: ["AAPL"]
+	      stocks: [],
+	      lookupResult: [],
+	      addErr: "",
+	      chartData: []
 	    };
 	    return _this;
 	  }
@@ -21552,16 +21559,138 @@
 	  _createClass(MainContainer, [{
 	    key: 'componentDidMount',
 	    value: function componentDidMount() {
-	      var url = "https://www.highcharts.com/samples/data/jsonp.php?filename=aapl-c.json";
-	      (0, _jsonp2.default)(url, null, function (err, data) {
-	        if (err) console.log(err);
-	        console.log(data);
-	      });
+	      // this.handleAdd("AAPL");
 	    }
 	  }, {
 	    key: 'handleAdd',
 	    value: function handleAdd(newCode) {
-	      console.log("from MainContainer", newCode);
+	      this.setState({
+	        addErr: "",
+	        lookupResult: []
+	      });
+	      var stockList = this.state.stocks.map(function (e) {
+	        return e.symbol;
+	      });
+	      stockList.push(newCode.toString().toUpperCase());
+
+	      var parameters = {
+	        Normalized: false,
+	        NumberOfDays: 370,
+	        DataPeriod: "Day"
+	      };
+	      parameters.Elements = stockList.map(function (stock) {
+	        return {
+	          Symbol: stock,
+	          Type: "price",
+	          Params: ["c"]
+	        };
+	      });
+	      var urlL = "http://dev.markitondemand.com/Api/v2/Lookup/jsonp?input=" + newCode;
+	      var urlIC = "http://dev.markitondemand.com/Api/v2/InteractiveChart/jsonp?parameters=" + encodeURIComponent(JSON.stringify(parameters));
+
+	      var promL = new Promise(function (resolve, reject) {
+	        (0, _jsonp2.default)(urlL, null, function (err, data) {
+	          if (err) {
+	            reject(err);
+	          } else if (Array.isArray(data) && data.length === 0) {
+	            reject("none");
+	          } else {
+	            resolve(data);
+	          }
+	        });
+	      });
+
+	      var promIC = new Promise(function (resolve, reject) {
+	        (0, _jsonp2.default)(urlIC, null, function (err, data) {
+	          if (err) {
+	            reject(err);
+	          } else {
+	            resolve(data);
+	          }
+	        });
+	      });
+
+	      Promise.all([promL, promIC]).then(function (values) {
+	        var stocks = this.state.stocks;
+	        var chartData = values[1].Elements.map(function (stock) {
+	          var stockEl = Object.create(null);
+	          stockEl.symbol = stock.Symbol;
+	          for (var i = 0; i < this.state.stocks.length; i++) {
+	            if (stock.Symbol === this.state.stocks[i]["symbol"]) {
+	              stockEl.name = this.state.stocks[i]["name"];
+	              break;
+	            }
+	          }
+	          for (var j = 0; j < values[0].length; j++) {
+	            if (stock.Symbol === values[0][j]["Symbol"]) {
+	              stockEl.name = values[0][j]["Name"];
+	              stocks.push({ symbol: stockEl.symbol, name: stockEl.name });
+	              break;
+	            }
+	          }
+	          stockEl.data = values[1].Dates.map(function (d, i) {
+	            return [Date.parse(d), stock.DataSeries.close.values[i]];
+	          });
+	          return stockEl;
+	        }.bind(this));
+	        this.setState({
+	          chartData: chartData,
+	          stocks: stocks
+	        });
+	      }.bind(this)).catch(function (err) {
+	        if (err === "none") {
+	          this.setState({
+	            addErr: "Incorrect or not existing stock code"
+	          });
+	        }
+	        console.log("err: ", err);
+	      }.bind(this));
+	    }
+	  }, {
+	    key: 'handleDel',
+	    value: function handleDel(code) {
+	      var stocks = this.state.stocks.filter(function (stock) {
+	        return stock.symbol !== code;
+	      });
+	      var chartData = this.state.chartData.filter(function (stock) {
+	        return stock.symbol !== code;
+	      });
+	      this.setState({
+	        stocks: stocks,
+	        chartData: chartData,
+	        lookupResult: []
+	      });
+	    }
+	  }, {
+	    key: 'handleLookup',
+	    value: function handleLookup(newTerm) {
+	      this.setState({
+	        addErr: ""
+	      });
+	      var url = "http://dev.markitondemand.com/Api/v2/Lookup/jsonp?input=" + newTerm;
+	      function onresult(err, data) {
+	        if (err) {
+	          this.setState({
+	            lookupResult: [{ error: JSON.stringify(err) }]
+	          });
+	        } else {
+	          if (Array.isArray(data)) {
+	            this.setState({
+	              lookupResult: data.length === 0 ? [{ none: "none" }] : data
+	            });
+	          } else {
+	            this.setState({
+	              lookupResult: [{ error: JSON.stringify(data) }]
+	            });
+	          }
+	        }
+	      }
+	      (0, _jsonp2.default)(url, null, onresult.bind(this));
+	    }
+	  }, {
+	    key: 'handleAddRef',
+	    value: function handleAddRef(code) {
+	      this.handleAdd(code);
 	    }
 	  }, {
 	    key: 'render',
@@ -21569,7 +21698,8 @@
 	      return _react2.default.createElement(
 	        'div',
 	        null,
-	        _react2.default.createElement(_Main2.default, { onAdd: this.handleAdd })
+	        _react2.default.createElement(_Main2.default, { onAdd: this.handleAdd, onDel: this.handleDel, addErr: this.state.addErr, onLookup: this.handleLookup,
+	          lookupResult: this.state.lookupResult, chartData: this.state.chartData, onAddRef: this.handleAddRef })
 	      );
 	    }
 	  }]);
@@ -22259,7 +22389,11 @@
 
 	var _StockContainer2 = _interopRequireDefault(_StockContainer);
 
-	var _Footer = __webpack_require__(191);
+	var _LookupContainer = __webpack_require__(193);
+
+	var _LookupContainer2 = _interopRequireDefault(_LookupContainer);
+
+	var _Footer = __webpack_require__(197);
 
 	var _Footer2 = _interopRequireDefault(_Footer);
 
@@ -22280,6 +22414,9 @@
 	    var _this = _possibleConstructorReturn(this, (Main.__proto__ || Object.getPrototypeOf(Main)).call(this));
 
 	    _this.handleAdd = _this.handleAdd.bind(_this);
+	    _this.handleDel = _this.handleDel.bind(_this);
+	    _this.handleLookup = _this.handleLookup.bind(_this);
+	    _this.handleAddRef = _this.handleAddRef.bind(_this);
 	    return _this;
 	  }
 
@@ -22289,8 +22426,29 @@
 	      this.props.onAdd(newCode);
 	    }
 	  }, {
+	    key: 'handleDel',
+	    value: function handleDel(code) {
+	      this.props.onDel(code);
+	    }
+	  }, {
+	    key: 'handleLookup',
+	    value: function handleLookup(newTerm) {
+	      this.props.onLookup(newTerm);
+	    }
+	  }, {
+	    key: 'handleAddRef',
+	    value: function handleAddRef(code) {
+	      this.props.onAddRef(code);
+	    }
+	  }, {
 	    key: 'render',
 	    value: function render() {
+	      var stocks = this.props.chartData.map(function (stock) {
+	        return {
+	          symbol: stock.symbol,
+	          name: stock.name
+	        };
+	      });
 	      return _react2.default.createElement(
 	        'div',
 	        null,
@@ -22301,8 +22459,9 @@
 	          _react2.default.createElement(
 	            'div',
 	            { className: 'col-m-10 col-8', style: { backgroundColor: "yellow" } },
-	            _react2.default.createElement(_Chart2.default, null),
-	            _react2.default.createElement(_StockContainer2.default, { onAdd: this.handleAdd })
+	            _react2.default.createElement(_Chart2.default, { chartData: this.props.chartData }),
+	            _react2.default.createElement(_StockContainer2.default, { onAdd: this.handleAdd, onDel: this.handleDel, addErr: this.props.onAddErr, stocks: stocks }),
+	            _react2.default.createElement(_LookupContainer2.default, { onLookup: this.handleLookup, lookupResult: this.props.lookupResult, onAddRef: this.handleAddRef })
 	          ),
 	          _react2.default.createElement('div', { className: 'col-m-1 col-2', style: { height: "10px" } })
 	        ),
@@ -22315,7 +22474,13 @@
 	}(_react2.default.Component);
 
 	Main.propTypes = {
-	  onAdd: _react.PropTypes.func.isRequired
+	  onAdd: _react.PropTypes.func.isRequired,
+	  onDel: _react.PropTypes.func.isRequired,
+	  onLookup: _react.PropTypes.func.isRequired,
+	  lookupResult: _react.PropTypes.array,
+	  addErr: _react.PropTypes.string,
+	  chartData: _react.PropTypes.array.isRequired,
+	  onAddRef: _react.PropTypes.func.isRequired
 	};
 
 	exports.default = Main;
@@ -22353,6 +22518,8 @@
 	  value: true
 	});
 
+	var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
+
 	var _react = __webpack_require__(2);
 
 	var _react2 = _interopRequireDefault(_react);
@@ -22367,42 +22534,73 @@
 
 	function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
 
+	function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
+
+	function _possibleConstructorReturn(self, call) { if (!self) { throw new ReferenceError("this hasn't been initialised - super() hasn't been called"); } return call && (typeof call === "object" || typeof call === "function") ? call : self; }
+
+	function _inherits(subClass, superClass) { if (typeof superClass !== "function" && superClass !== null) { throw new TypeError("Super expression must either be null or a function, not " + typeof superClass); } subClass.prototype = Object.create(superClass && superClass.prototype, { constructor: { value: subClass, enumerable: false, writable: true, configurable: true } }); if (superClass) Object.setPrototypeOf ? Object.setPrototypeOf(subClass, superClass) : subClass.__proto__ = superClass; }
 	// import styles from '../styles';
+
+
 	(0, _darkUnica2.default)(_ReactHighstock2.default.Highcharts);
 
-	var data = [[1220832000000, 22.56], [1220918400000, 21.67], [1221004800000, 21.66], [1221091200000, 21.81], [1221177600000, 21.28], [1221436800000, 20.05], [1221523200000, 19.98], [1221609600000, 18.26], [1221696000000, 19.16], [1221782400000, 20.13], [1222041600000, 18.72], [1222128000000, 18.12], [1222214400000, 18.39], [1222300800000, 18.85], [1222387200000, 18.32], [1222646400000, 15.04], [1222732800000, 16.24], [1222819200000, 15.59], [1222905600000, 14.3], [1222992000000, 13.87], [1223251200000, 14.02], [1223337600000, 12.74], [1223424000000, 12.83], [1223510400000, 12.68], [1223596800000, 13.8], [1223856000000, 15.75], [1223942400000, 14.87], [1224028800000, 13.99], [1224115200000, 14.56], [1224201600000, 13.91], [1224460800000, 14.06], [1224547200000, 13.07], [1224633600000, 13.84], [1224720000000, 14.03], [1224806400000, 13.77], [1225065600000, 13.16], [1225152000000, 14.27], [1225238400000, 14.94], [1225324800000, 15.86], [1225411200000, 15.37], [1225670400000, 15.28], [1225756800000, 15.86], [1225843200000, 14.76], [1225929600000, 14.16], [1226016000000, 14.03], [1226275200000, 13.7], [1226361600000, 13.54], [1226448000000, 12.87], [1226534400000, 13.78], [1226620800000, 12.89], [1226880000000, 12.59], [1226966400000, 12.84], [1227052800000, 12.33], [1227139200000, 11.5], [1227225600000, 11.8], [1227484800000, 13.28], [1227571200000, 12.97], [1227657600000, 13.57], [1227830400000, 13.24], [1228089600000, 12.7], [1228176000000, 13.21], [1228262400000, 13.7], [1228348800000, 13.06], [1228435200000, 13.43], [1228694400000, 14.25], [1228780800000, 14.29], [1228867200000, 14.03], [1228953600000, 13.57], [1229040000000, 14.04], [1229299200000, 13.54]];
-	var data2 = data.map(function (e) {
-	  return [e[0], e[1] * 0.6];
-	});
-
 	var config = {
+	  chart: {
+	    height: 500
+	  },
 	  rangeSelector: {
 	    selected: 1
 	  },
 	  title: {
 	    text: 'Stock Price'
-	  },
-	  series: [{
-	    name: 'AAPL',
-	    data: data,
-	    tooltip: {
-	      valueDecimals: 2
-	    }
-	  }, {
-	    name: "SSSS",
-	    data: data2,
-	    tooltip: {
-	      valueDecimals: 2
-	    }
-	  }]
+	  }
 	};
 
-	var Chart = function Chart(props) {
-	  return _react2.default.createElement(
-	    'div',
-	    { style: { height: "400px" } },
-	    _react2.default.createElement(_ReactHighstock2.default, { config: config })
-	  );
+	var Chart = function (_React$Component) {
+	  _inherits(Chart, _React$Component);
+
+	  function Chart() {
+	    _classCallCheck(this, Chart);
+
+	    return _possibleConstructorReturn(this, (Chart.__proto__ || Object.getPrototypeOf(Chart)).apply(this, arguments));
+	  }
+
+	  _createClass(Chart, [{
+	    key: 'render',
+	    value: function render() {
+	      if (this.props.chartData.length === 0) {
+	        config.series = [{
+	          name: '',
+	          data: [],
+	          tooltip: {
+	            valueDecimals: 2
+	          }
+	        }];
+	      } else {
+	        config.series = this.props.chartData.map(function (stock) {
+	          return {
+	            name: stock.symbol,
+	            data: stock.data,
+	            tooltip: {
+	              valueDecimals: 2
+	            }
+	          };
+	        });
+	      }
+
+	      return _react2.default.createElement(
+	        'div',
+	        { style: { height: "500px" } },
+	        _react2.default.createElement(_ReactHighstock2.default, { config: config })
+	      );
+	    }
+	  }]);
+
+	  return Chart;
+	}(_react2.default.Component);
+
+	Chart.propTypes = {
+	  chartData: _react.PropTypes.array
 	};
 
 	exports.default = Chart;
@@ -23360,11 +23558,11 @@
 
 	var _react2 = _interopRequireDefault(_react);
 
-	var _StockBox = __webpack_require__(192);
+	var _StockBox = __webpack_require__(191);
 
 	var _StockBox2 = _interopRequireDefault(_StockBox);
 
-	var _InputBox = __webpack_require__(193);
+	var _InputBox = __webpack_require__(192);
 
 	var _InputBox2 = _interopRequireDefault(_InputBox);
 
@@ -23385,6 +23583,7 @@
 	    var _this = _possibleConstructorReturn(this, (StockContainer.__proto__ || Object.getPrototypeOf(StockContainer)).call(this));
 
 	    _this.handleAdd = _this.handleAdd.bind(_this);
+	    _this.handleDel = _this.handleDel.bind(_this);
 	    return _this;
 	  }
 
@@ -23394,15 +23593,21 @@
 	      this.props.onAdd(newCode);
 	    }
 	  }, {
+	    key: 'handleDel',
+	    value: function handleDel(code) {
+	      this.props.onDel(code);
+	    }
+	  }, {
 	    key: 'render',
 	    value: function render() {
+	      var stockBoxes = this.props.stocks.map(function (stock, i) {
+	        return _react2.default.createElement(_StockBox2.default, { key: i, symName: stock, onDel: this.handleDel });
+	      }.bind(this));
 	      return _react2.default.createElement(
 	        'div',
 	        null,
-	        _react2.default.createElement(_StockBox2.default, null),
-	        _react2.default.createElement(_StockBox2.default, null),
-	        _react2.default.createElement(_StockBox2.default, null),
-	        _react2.default.createElement(_InputBox2.default, { onAdd: this.handleAdd })
+	        stockBoxes,
+	        _react2.default.createElement(_InputBox2.default, { onAdd: this.handleAdd, addErr: this.props.onAddErr })
 	      );
 	    }
 	  }]);
@@ -23411,39 +23616,16 @@
 	}(_react2.default.Component);
 
 	StockContainer.propTypes = {
-	  onAdd: _react.PropTypes.func.isRequired
+	  onAdd: _react.PropTypes.func.isRequired,
+	  onDel: _react.PropTypes.func.isRequired,
+	  addErr: _react.PropTypes.string,
+	  stocks: _react.PropTypes.array
 	};
 
 	exports.default = StockContainer;
 
 /***/ },
 /* 191 */
-/***/ function(module, exports, __webpack_require__) {
-
-	"use strict";
-
-	Object.defineProperty(exports, "__esModule", {
-	  value: true
-	});
-
-	var _react = __webpack_require__(2);
-
-	var _react2 = _interopRequireDefault(_react);
-
-	function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
-
-	var Footer = function Footer(props) {
-	  return _react2.default.createElement(
-	    "div",
-	    { style: { textAlign: "center", marginTop: "30px" } },
-	    "footerrrr"
-	  );
-	};
-
-	exports.default = Footer;
-
-/***/ },
-/* 192 */
 /***/ function(module, exports, __webpack_require__) {
 
 	"use strict";
@@ -23472,27 +23654,41 @@
 	    function StockBox() {
 	        _classCallCheck(this, StockBox);
 
-	        return _possibleConstructorReturn(this, (StockBox.__proto__ || Object.getPrototypeOf(StockBox)).apply(this, arguments));
+	        var _this = _possibleConstructorReturn(this, (StockBox.__proto__ || Object.getPrototypeOf(StockBox)).call(this));
+
+	        _this.handleDel = _this.handleDel.bind(_this);
+	        return _this;
 	    }
 
 	    _createClass(StockBox, [{
+	        key: "handleDel",
+	        value: function handleDel() {
+	            this.props.onDel(this.props.symName.symbol);
+	        }
+	    }, {
 	        key: "render",
 	        value: function render() {
 	            return _react2.default.createElement(
 	                "div",
-	                { className: "col-m-6 col-4", style: {} },
+	                { className: "col-m-6 col-4", style: { fontFamily: "Verdana" } },
 	                _react2.default.createElement(
 	                    "div",
-	                    { style: { backgroundColor: "#fff", height: "200px", margin: "10px", borderRadius: "6px" } },
+	                    { style: { backgroundColor: "#fff", height: "140px", margin: "10px", borderRadius: "6px" } },
 	                    _react2.default.createElement(
-	                        "p",
-	                        { style: { padding: "30px 30px 10px 30px", fontSize: "1.6em", fontFamily: "Verdana", marginBottom: "0" } },
-	                        "AAPL"
+	                        "div",
+	                        { style: { margin: "0 0 0 90%", padding: "10px", width: "20px", fontSize: "1em", cursor: "pointer" },
+	                            onClick: this.handleDel },
+	                        "x"
 	                    ),
 	                    _react2.default.createElement(
-	                        "p",
-	                        { style: { padding: "0 30px 30px 30px", fontSize: "1.1em", fontFamily: "Verdana", marginTop: "0", color: "#777" } },
-	                        "StockBox text"
+	                        "div",
+	                        { style: { padding: "0 30px 10px 30px", fontSize: "1.6em", marginBottom: "0" } },
+	                        this.props.symName.symbol
+	                    ),
+	                    _react2.default.createElement(
+	                        "div",
+	                        { style: { padding: "0 30px 30px 30px", fontSize: "1.1em", marginTop: "0", color: "#777" } },
+	                        this.props.symName.name
 	                    )
 	                )
 	            );
@@ -23502,12 +23698,15 @@
 	    return StockBox;
 	}(_react.Component);
 
-	StockBox.propTypes = {};
+	StockBox.propTypes = {
+	    symName: _react.PropTypes.object.isRequired,
+	    onDel: _react.PropTypes.func.isRequired
+	};
 
 	exports.default = StockBox;
 
 /***/ },
-/* 193 */
+/* 192 */
 /***/ function(module, exports, __webpack_require__) {
 
 	"use strict";
@@ -23541,7 +23740,8 @@
 	        _this.handleChange = _this.handleChange.bind(_this);
 	        _this.handleAdd = _this.handleAdd.bind(_this);
 	        _this.state = {
-	            newCode: ""
+	            newCode: "",
+	            status: ""
 	        };
 	        return _this;
 	    }
@@ -23550,30 +23750,44 @@
 	        key: "handleChange",
 	        value: function handleChange(e) {
 	            this.setState({
-	                newCode: e.target.value
+	                newCode: e.target.value,
+	                status: ""
 	            });
 	        }
 	    }, {
 	        key: "handleAdd",
 	        value: function handleAdd(e) {
 	            e.preventDefault();
-	            this.props.onAdd(this.state.newCode);
+	            if (this.state.newCode.trim().length === 0) {
+	                if (this.props.addErr !== "") {
+	                    this.setState({
+	                        status: "Should not be empty"
+	                    });
+	                }
+	            } else {
+	                this.props.onAdd(this.state.newCode);
+	                this.setState({
+	                    newCode: "",
+	                    status: ""
+	                });
+	            }
 	        }
 	    }, {
 	        key: "render",
 	        value: function render() {
 	            return _react2.default.createElement(
 	                "div",
-	                { className: "col-m-6 col-4", style: {} },
+	                { className: "col-m-6 col-4" },
 	                _react2.default.createElement(
 	                    "div",
-	                    { style: { backgroundColor: "#fff", height: "200px", margin: "10px", borderRadius: "6px" } },
+	                    { style: { backgroundColor: "#fff", height: "140px", margin: "10px", borderRadius: "6px" } },
 	                    _react2.default.createElement(
-	                        "p",
-	                        { style: { padding: "20px 0 0 20px", fontFamily: "Verdana" } },
+	                        "div",
+	                        { style: { padding: "20px 0 20px 20px", fontFamily: "Verdana" } },
 	                        "Syncs in realtime across clients"
 	                    ),
-	                    _react2.default.createElement("input", { placeholder: "Stock code", type: "text", value: this.state.newCode, onChange: this.handleChange, style: { margin: "0 0 0 20px", height: "40px",
+	                    _react2.default.createElement("input", { placeholder: "Stock code", type: "text", value: this.state.newCode, onChange: this.handleChange,
+	                        style: { margin: "0 0 0 20px", height: "40px", maxWidth: "50%",
 	                            fontSize: "1.1em", fontFamily: "Verdana", borderRadius: "6px" } }),
 	                    _react2.default.createElement(
 	                        "button",
@@ -23581,6 +23795,16 @@
 	                                fontSize: "1em", fontFamily: "Verdana", borderRadius: "6px", backgroundColor: "#5CB85C",
 	                                color: "#fff" }, onClick: this.handleAdd },
 	                        "Add"
+	                    ),
+	                    _react2.default.createElement(
+	                        "div",
+	                        { style: { padding: "10px 0 0 20px", fontFamily: "Verdana", color: "#f00" } },
+	                        this.state.status
+	                    ),
+	                    _react2.default.createElement(
+	                        "div",
+	                        { style: { padding: "0 0 0 20px", fontFamily: "Verdana", color: "#f00" } },
+	                        this.props.addErr
 	                    )
 	                )
 	            );
@@ -23591,10 +23815,402 @@
 	}(_react.Component);
 
 	InputBox.propTypes = {
-	    onAdd: _react.PropTypes.func.isRequired
+	    onAdd: _react.PropTypes.func.isRequired,
+	    addErr: _react.PropTypes.string
 	};
 
 	exports.default = InputBox;
+
+/***/ },
+/* 193 */
+/***/ function(module, exports, __webpack_require__) {
+
+	'use strict';
+
+	Object.defineProperty(exports, "__esModule", {
+	    value: true
+	});
+
+	var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
+
+	var _react = __webpack_require__(2);
+
+	var _react2 = _interopRequireDefault(_react);
+
+	var _LookupForm = __webpack_require__(194);
+
+	var _LookupForm2 = _interopRequireDefault(_LookupForm);
+
+	var _LookupResults = __webpack_require__(195);
+
+	var _LookupResults2 = _interopRequireDefault(_LookupResults);
+
+	function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
+
+	function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
+
+	function _possibleConstructorReturn(self, call) { if (!self) { throw new ReferenceError("this hasn't been initialised - super() hasn't been called"); } return call && (typeof call === "object" || typeof call === "function") ? call : self; }
+
+	function _inherits(subClass, superClass) { if (typeof superClass !== "function" && superClass !== null) { throw new TypeError("Super expression must either be null or a function, not " + typeof superClass); } subClass.prototype = Object.create(superClass && superClass.prototype, { constructor: { value: subClass, enumerable: false, writable: true, configurable: true } }); if (superClass) Object.setPrototypeOf ? Object.setPrototypeOf(subClass, superClass) : subClass.__proto__ = superClass; }
+
+	var LookupContainer = function (_Component) {
+	    _inherits(LookupContainer, _Component);
+
+	    function LookupContainer() {
+	        _classCallCheck(this, LookupContainer);
+
+	        var _this = _possibleConstructorReturn(this, (LookupContainer.__proto__ || Object.getPrototypeOf(LookupContainer)).call(this));
+
+	        _this.handleLookup = _this.handleLookup.bind(_this);
+	        _this.handleAddRef = _this.handleAddRef.bind(_this);
+	        return _this;
+	    }
+
+	    _createClass(LookupContainer, [{
+	        key: 'handleLookup',
+	        value: function handleLookup(newTerm) {
+	            this.props.onLookup(newTerm);
+	        }
+	    }, {
+	        key: 'handleAddRef',
+	        value: function handleAddRef(code) {
+	            this.props.onAddRef(code);
+	        }
+	    }, {
+	        key: 'render',
+	        value: function render() {
+	            return _react2.default.createElement(
+	                'div',
+	                { className: 'col-m-12 col-12' },
+	                _react2.default.createElement(_LookupForm2.default, { onLookup: this.handleLookup }),
+	                _react2.default.createElement(_LookupResults2.default, { lookupResult: this.props.lookupResult, onAddRef: this.handleAddRef })
+	            );
+	        }
+	    }]);
+
+	    return LookupContainer;
+	}(_react.Component);
+
+	LookupContainer.propTypes = {
+	    onLookup: _react.PropTypes.func.isRequired,
+	    lookupResult: _react.PropTypes.array,
+	    onAddRef: _react.PropTypes.func.isRequired
+	};
+
+	exports.default = LookupContainer;
+
+/***/ },
+/* 194 */
+/***/ function(module, exports, __webpack_require__) {
+
+	"use strict";
+
+	Object.defineProperty(exports, "__esModule", {
+	    value: true
+	});
+
+	var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
+
+	var _react = __webpack_require__(2);
+
+	var _react2 = _interopRequireDefault(_react);
+
+	function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
+
+	function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
+
+	function _possibleConstructorReturn(self, call) { if (!self) { throw new ReferenceError("this hasn't been initialised - super() hasn't been called"); } return call && (typeof call === "object" || typeof call === "function") ? call : self; }
+
+	function _inherits(subClass, superClass) { if (typeof superClass !== "function" && superClass !== null) { throw new TypeError("Super expression must either be null or a function, not " + typeof superClass); } subClass.prototype = Object.create(superClass && superClass.prototype, { constructor: { value: subClass, enumerable: false, writable: true, configurable: true } }); if (superClass) Object.setPrototypeOf ? Object.setPrototypeOf(subClass, superClass) : subClass.__proto__ = superClass; }
+
+	var LookupForm = function (_Component) {
+	    _inherits(LookupForm, _Component);
+
+	    function LookupForm() {
+	        _classCallCheck(this, LookupForm);
+
+	        var _this = _possibleConstructorReturn(this, (LookupForm.__proto__ || Object.getPrototypeOf(LookupForm)).call(this));
+
+	        _this.handleChange = _this.handleChange.bind(_this);
+	        _this.handleLookup = _this.handleLookup.bind(_this);
+	        _this.state = {
+	            newTerm: "",
+	            status: ""
+	        };
+	        return _this;
+	    }
+
+	    _createClass(LookupForm, [{
+	        key: "handleChange",
+	        value: function handleChange(e) {
+	            this.setState({
+	                newTerm: e.target.value,
+	                status: ""
+	            });
+	        }
+	    }, {
+	        key: "handleLookup",
+	        value: function handleLookup(e) {
+	            e.preventDefault();
+	            if (this.state.newTerm.trim().length === 0) {
+	                this.setState({
+	                    status: "Should not be empty"
+	                });
+	            } else {
+	                this.props.onLookup(this.state.newTerm);
+	                this.setState({
+	                    newTerm: "",
+	                    status: ""
+	                });
+	            }
+	        }
+	    }, {
+	        key: "render",
+	        value: function render() {
+	            return _react2.default.createElement(
+	                "div",
+	                { className: "col-m-6 col-6" },
+	                _react2.default.createElement(
+	                    "div",
+	                    { style: { backgroundColor: "#fff", height: "140px", margin: "10px", borderRadius: "6px" } },
+	                    _react2.default.createElement(
+	                        "div",
+	                        { style: { padding: "20px 0 20px 20px", fontFamily: "Verdana" } },
+	                        "Code Lookup"
+	                    ),
+	                    _react2.default.createElement("input", { placeholder: "Term, e.g. Netflix", type: "text", value: this.state.newTerm, onChange: this.handleChange,
+	                        style: { margin: "0 0 0 20px", height: "40px", maxWidth: "60%",
+	                            fontSize: "1.1em", fontFamily: "Verdana", borderRadius: "6px" } }),
+	                    _react2.default.createElement(
+	                        "button",
+	                        { style: { margin: "0 0 0 20px", width: "80px", height: "40px",
+	                                fontSize: "1em", fontFamily: "Verdana", borderRadius: "6px", backgroundColor: "#5CB85C",
+	                                color: "#fff" }, onClick: this.handleLookup },
+	                        "Lookup"
+	                    ),
+	                    _react2.default.createElement(
+	                        "div",
+	                        { style: { padding: "10px 0 0 20px", fontFamily: "Verdana", color: "#f00" } },
+	                        this.state.status
+	                    )
+	                )
+	            );
+	        }
+	    }]);
+
+	    return LookupForm;
+	}(_react.Component);
+
+	LookupForm.propTypes = {
+	    onLookup: _react.PropTypes.func.isRequired
+	};
+
+	exports.default = LookupForm;
+
+/***/ },
+/* 195 */
+/***/ function(module, exports, __webpack_require__) {
+
+	'use strict';
+
+	Object.defineProperty(exports, "__esModule", {
+	    value: true
+	});
+
+	var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
+
+	var _react = __webpack_require__(2);
+
+	var _react2 = _interopRequireDefault(_react);
+
+	var _LookupResult = __webpack_require__(196);
+
+	var _LookupResult2 = _interopRequireDefault(_LookupResult);
+
+	function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
+
+	function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
+
+	function _possibleConstructorReturn(self, call) { if (!self) { throw new ReferenceError("this hasn't been initialised - super() hasn't been called"); } return call && (typeof call === "object" || typeof call === "function") ? call : self; }
+
+	function _inherits(subClass, superClass) { if (typeof superClass !== "function" && superClass !== null) { throw new TypeError("Super expression must either be null or a function, not " + typeof superClass); } subClass.prototype = Object.create(superClass && superClass.prototype, { constructor: { value: subClass, enumerable: false, writable: true, configurable: true } }); if (superClass) Object.setPrototypeOf ? Object.setPrototypeOf(subClass, superClass) : subClass.__proto__ = superClass; }
+
+	var LookupResults = function (_Component) {
+	    _inherits(LookupResults, _Component);
+
+	    function LookupResults() {
+	        _classCallCheck(this, LookupResults);
+
+	        var _this = _possibleConstructorReturn(this, (LookupResults.__proto__ || Object.getPrototypeOf(LookupResults)).call(this));
+
+	        _this.handleAddRef = _this.handleAddRef.bind(_this);
+	        return _this;
+	    }
+
+	    _createClass(LookupResults, [{
+	        key: 'handleAddRef',
+	        value: function handleAddRef(code) {
+	            this.props.onAddRef(code);
+	        }
+	    }, {
+	        key: 'render',
+	        value: function render() {
+	            var resultsArray = this.props.lookupResult;
+	            if (resultsArray.length === 0) {
+	                return _react2.default.createElement('div', { className: 'col-m-6 col-6', style: { height: "10px" } });
+	            } else {
+	                var results = resultsArray.map(function (r, i) {
+	                    return _react2.default.createElement(_LookupResult2.default, { key: i, result: r, onAddRef: this.handleAddRef });
+	                }.bind(this));
+	                return _react2.default.createElement(
+	                    'div',
+	                    { className: 'col-m-6 col-6' },
+	                    results
+	                );
+	            }
+	        }
+	    }]);
+
+	    return LookupResults;
+	}(_react.Component);
+
+	LookupResults.propTypes = {
+	    lookupResult: _react.PropTypes.array,
+	    onAddRef: _react.PropTypes.func.isRequired
+	};
+
+	exports.default = LookupResults;
+
+/***/ },
+/* 196 */
+/***/ function(module, exports, __webpack_require__) {
+
+	"use strict";
+
+	Object.defineProperty(exports, "__esModule", {
+	    value: true
+	});
+
+	var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
+
+	var _react = __webpack_require__(2);
+
+	var _react2 = _interopRequireDefault(_react);
+
+	function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
+
+	function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
+
+	function _possibleConstructorReturn(self, call) { if (!self) { throw new ReferenceError("this hasn't been initialised - super() hasn't been called"); } return call && (typeof call === "object" || typeof call === "function") ? call : self; }
+
+	function _inherits(subClass, superClass) { if (typeof superClass !== "function" && superClass !== null) { throw new TypeError("Super expression must either be null or a function, not " + typeof superClass); } subClass.prototype = Object.create(superClass && superClass.prototype, { constructor: { value: subClass, enumerable: false, writable: true, configurable: true } }); if (superClass) Object.setPrototypeOf ? Object.setPrototypeOf(subClass, superClass) : subClass.__proto__ = superClass; }
+
+	var LookupResult = function (_Component) {
+	    _inherits(LookupResult, _Component);
+
+	    function LookupResult() {
+	        _classCallCheck(this, LookupResult);
+
+	        var _this = _possibleConstructorReturn(this, (LookupResult.__proto__ || Object.getPrototypeOf(LookupResult)).call(this));
+
+	        _this.handleAddRef = _this.handleAddRef.bind(_this);
+	        return _this;
+	    }
+
+	    _createClass(LookupResult, [{
+	        key: "handleAddRef",
+	        value: function handleAddRef() {
+	            this.props.onAddRef(this.props.result.Symbol);
+	        }
+	    }, {
+	        key: "render",
+	        value: function render() {
+	            if (this.props.result.error) {
+	                return _react2.default.createElement(
+	                    "div",
+	                    { style: { margin: "10px", padding: "10px 0 10px 20px", fontFamily: "Verdana", backgroundColor: "#ccc",
+	                            borderRadius: "6px" } },
+	                    _react2.default.createElement(
+	                        "div",
+	                        { style: { padding: "20px 0 0 20px", fontFamily: "Verdana" } },
+	                        "Error: ",
+	                        this.props.result.error
+	                    )
+	                );
+	            } else if (this.props.result.none) {
+	                return _react2.default.createElement(
+	                    "div",
+	                    { style: { margin: "10px", padding: "10px 0 10px 20px", fontFamily: "Verdana", backgroundColor: "#ccc",
+	                            borderRadius: "6px" } },
+	                    _react2.default.createElement(
+	                        "div",
+	                        { style: { padding: "20px 0 0 20px", fontFamily: "Verdana" } },
+	                        "No results found"
+	                    )
+	                );
+	            } else {
+	                return _react2.default.createElement(
+	                    "div",
+	                    { style: { margin: "10px", padding: "10px 0 10px 20px", fontFamily: "Verdana", backgroundColor: "#ccc",
+	                            borderRadius: "6px", cursor: "pointer" }, onClick: this.handleAddRef },
+	                    _react2.default.createElement(
+	                        "div",
+	                        null,
+	                        "Symbol: ",
+	                        this.props.result.Symbol
+	                    ),
+	                    _react2.default.createElement(
+	                        "div",
+	                        null,
+	                        "Name: ",
+	                        this.props.result.Name
+	                    ),
+	                    _react2.default.createElement(
+	                        "div",
+	                        null,
+	                        "Exchange: ",
+	                        this.props.result.Exchange
+	                    )
+	                );
+	            }
+	        }
+	    }]);
+
+	    return LookupResult;
+	}(_react.Component);
+
+	LookupResult.propTypes = {
+	    result: _react.PropTypes.object.isRequired,
+	    onAddRef: _react.PropTypes.func.isRequired
+	};
+
+	exports.default = LookupResult;
+
+/***/ },
+/* 197 */
+/***/ function(module, exports, __webpack_require__) {
+
+	"use strict";
+
+	Object.defineProperty(exports, "__esModule", {
+	  value: true
+	});
+
+	var _react = __webpack_require__(2);
+
+	var _react2 = _interopRequireDefault(_react);
+
+	function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
+
+	var Footer = function Footer(props) {
+	  return _react2.default.createElement(
+	    "div",
+	    { style: { textAlign: "center", marginTop: "30px" } },
+	    "footerrrr"
+	  );
+	};
+
+	exports.default = Footer;
 
 /***/ }
 /******/ ]);
