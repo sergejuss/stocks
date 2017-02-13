@@ -27,7 +27,7 @@ class StockContainer extends React.Component {
     return (
     <div>
       { stockBoxes }                   
-      <InputBox onAdd={this.handleAdd} addErr={this.props.onAddErr} />    
+      <InputBox onAdd={this.handleAdd} addErr={this.props.addErr} />    
     </div>
     )
   }

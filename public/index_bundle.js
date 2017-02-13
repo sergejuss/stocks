@@ -21519,11 +21519,15 @@
 
 	var _react2 = _interopRequireDefault(_react);
 
-	var _jsonp = __webpack_require__(180);
+	var _ajax = __webpack_require__(180);
+
+	var _ajax2 = _interopRequireDefault(_ajax);
+
+	var _jsonp = __webpack_require__(206);
 
 	var _jsonp2 = _interopRequireDefault(_jsonp);
 
-	var _Main = __webpack_require__(184);
+	var _Main = __webpack_require__(210);
 
 	var _Main2 = _interopRequireDefault(_Main);
 
@@ -21535,6 +21539,8 @@
 
 	function _inherits(subClass, superClass) { if (typeof superClass !== "function" && superClass !== null) { throw new TypeError("Super expression must either be null or a function, not " + typeof superClass); } subClass.prototype = Object.create(superClass && superClass.prototype, { constructor: { value: subClass, enumerable: false, writable: true, configurable: true } }); if (superClass) Object.setPrototypeOf ? Object.setPrototypeOf(subClass, superClass) : subClass.__proto__ = superClass; }
 
+	var socket = io.connect();
+
 	var MainContainer = function (_React$Component) {
 	  _inherits(MainContainer, _React$Component);
 
@@ -21543,12 +21549,11 @@
 
 	    var _this = _possibleConstructorReturn(this, (MainContainer.__proto__ || Object.getPrototypeOf(MainContainer)).call(this));
 
+	    _this.getCurrent = _this.getCurrent.bind(_this);
 	    _this.handleAdd = _this.handleAdd.bind(_this);
 	    _this.handleDel = _this.handleDel.bind(_this);
 	    _this.handleLookup = _this.handleLookup.bind(_this);
-	    _this.handleAddRef = _this.handleAddRef.bind(_this);
 	    _this.state = {
-	      stocks: [],
 	      lookupResult: [],
 	      addErr: "",
 	      chartData: []
@@ -21559,7 +21564,26 @@
 	  _createClass(MainContainer, [{
 	    key: 'componentDidMount',
 	    value: function componentDidMount() {
-	      // this.handleAdd("AAPL");
+	      this.getCurrent();
+	      socket.on('curr', function () {
+	        this.getCurrent();
+	      }.bind(this));
+	    }
+	  }, {
+	    key: 'componentWillUnmount',
+	    value: function componentWillUnmount() {
+	      socket.close();
+	    }
+	  }, {
+	    key: 'getCurrent',
+	    value: function getCurrent() {
+	      _ajax2.default.curr().then(function (data) {
+	        this.setState({
+	          chartData: data.data
+	        });
+	      }.bind(this)).catch(function (err) {
+	        console.log(err);
+	      });
 	    }
 	  }, {
 	    key: 'handleAdd',
@@ -21568,97 +21592,38 @@
 	        addErr: "",
 	        lookupResult: []
 	      });
-	      var stockList = this.state.stocks.map(function (e) {
-	        return e.symbol;
-	      });
-	      stockList.push(newCode.toString().toUpperCase());
-
-	      var parameters = {
-	        Normalized: false,
-	        NumberOfDays: 370,
-	        DataPeriod: "Day"
-	      };
-	      parameters.Elements = stockList.map(function (stock) {
-	        return {
-	          Symbol: stock,
-	          Type: "price",
-	          Params: ["c"]
-	        };
-	      });
-	      var urlL = "http://dev.markitondemand.com/Api/v2/Lookup/jsonp?input=" + newCode;
-	      var urlIC = "http://dev.markitondemand.com/Api/v2/InteractiveChart/jsonp?parameters=" + encodeURIComponent(JSON.stringify(parameters));
-
-	      var promL = new Promise(function (resolve, reject) {
-	        (0, _jsonp2.default)(urlL, null, function (err, data) {
-	          if (err) {
-	            reject(err);
-	          } else if (Array.isArray(data) && data.length === 0) {
-	            reject("none");
+	      if (newCode) {
+	        _ajax2.default.add(newCode).then(function (data) {
+	          if (data.data.err) {
+	            this.setState({
+	              addErr: data.data.err
+	            });
 	          } else {
-	            resolve(data);
+	            this.setState({
+	              chartData: data.data
+	            });
+	            socket.emit('get_curr');
 	          }
+	        }.bind(this)).catch(function (err) {
+	          console.log(err);
 	        });
-	      });
-
-	      var promIC = new Promise(function (resolve, reject) {
-	        (0, _jsonp2.default)(urlIC, null, function (err, data) {
-	          if (err) {
-	            reject(err);
-	          } else {
-	            resolve(data);
-	          }
-	        });
-	      });
-
-	      Promise.all([promL, promIC]).then(function (values) {
-	        var stocks = this.state.stocks;
-	        var chartData = values[1].Elements.map(function (stock) {
-	          var stockEl = Object.create(null);
-	          stockEl.symbol = stock.Symbol;
-	          for (var i = 0; i < this.state.stocks.length; i++) {
-	            if (stock.Symbol === this.state.stocks[i]["symbol"]) {
-	              stockEl.name = this.state.stocks[i]["name"];
-	              break;
-	            }
-	          }
-	          for (var j = 0; j < values[0].length; j++) {
-	            if (stock.Symbol === values[0][j]["Symbol"]) {
-	              stockEl.name = values[0][j]["Name"];
-	              stocks.push({ symbol: stockEl.symbol, name: stockEl.name });
-	              break;
-	            }
-	          }
-	          stockEl.data = values[1].Dates.map(function (d, i) {
-	            return [Date.parse(d), stock.DataSeries.close.values[i]];
-	          });
-	          return stockEl;
-	        }.bind(this));
-	        this.setState({
-	          chartData: chartData,
-	          stocks: stocks
-	        });
-	      }.bind(this)).catch(function (err) {
-	        if (err === "none") {
-	          this.setState({
-	            addErr: "Incorrect or not existing stock code"
-	          });
-	        }
-	        console.log("err: ", err);
-	      }.bind(this));
+	      }
 	    }
 	  }, {
 	    key: 'handleDel',
 	    value: function handleDel(code) {
-	      var stocks = this.state.stocks.filter(function (stock) {
-	        return stock.symbol !== code;
-	      });
 	      var chartData = this.state.chartData.filter(function (stock) {
 	        return stock.symbol !== code;
 	      });
 	      this.setState({
-	        stocks: stocks,
 	        chartData: chartData,
+	        addErr: "",
 	        lookupResult: []
+	      });
+	      _ajax2.default.del(code).then(function () {
+	        socket.emit('get_curr');
+	      }).catch(function (err) {
+	        console.log(err);
 	      });
 	    }
 	  }, {
@@ -21676,7 +21641,7 @@
 	        } else {
 	          if (Array.isArray(data)) {
 	            this.setState({
-	              lookupResult: data.length === 0 ? [{ none: "none" }] : data
+	              lookupResult: data.length === 0 ? [{ error: "No results found." }] : data
 	            });
 	          } else {
 	            this.setState({
@@ -21688,19 +21653,10 @@
 	      (0, _jsonp2.default)(url, null, onresult.bind(this));
 	    }
 	  }, {
-	    key: 'handleAddRef',
-	    value: function handleAddRef(code) {
-	      this.handleAdd(code);
-	    }
-	  }, {
 	    key: 'render',
 	    value: function render() {
-	      return _react2.default.createElement(
-	        'div',
-	        null,
-	        _react2.default.createElement(_Main2.default, { onAdd: this.handleAdd, onDel: this.handleDel, addErr: this.state.addErr, onLookup: this.handleLookup,
-	          lookupResult: this.state.lookupResult, chartData: this.state.chartData, onAddRef: this.handleAddRef })
-	      );
+	      return _react2.default.createElement(_Main2.default, { onAdd: this.handleAdd, onDel: this.handleDel, addErr: this.state.addErr, onLookup: this.handleLookup,
+	        lookupResult: this.state.lookupResult, chartData: this.state.chartData });
 	    }
 	  }]);
 
@@ -21713,11 +21669,1528 @@
 /* 180 */
 /***/ function(module, exports, __webpack_require__) {
 
+	'use strict';
+
+	var _axios = __webpack_require__(181);
+
+	var _axios2 = _interopRequireDefault(_axios);
+
+	function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
+
+	module.exports = {
+
+	  add: function add(code) {
+	    return _axios2.default.get('/api/add/' + code);
+	  },
+
+	  del: function del(code) {
+	    return _axios2.default.get('/api/del/' + code);
+	  },
+
+	  curr: function curr() {
+	    return _axios2.default.get('api/curr');
+	  }
+
+	};
+
+/***/ },
+/* 181 */
+/***/ function(module, exports, __webpack_require__) {
+
+	module.exports = __webpack_require__(182);
+
+/***/ },
+/* 182 */
+/***/ function(module, exports, __webpack_require__) {
+
+	'use strict';
+
+	var utils = __webpack_require__(183);
+	var bind = __webpack_require__(184);
+	var Axios = __webpack_require__(185);
+	var defaults = __webpack_require__(186);
+
+	/**
+	 * Create an instance of Axios
+	 *
+	 * @param {Object} defaultConfig The default config for the instance
+	 * @return {Axios} A new instance of Axios
+	 */
+	function createInstance(defaultConfig) {
+	  var context = new Axios(defaultConfig);
+	  var instance = bind(Axios.prototype.request, context);
+
+	  // Copy axios.prototype to instance
+	  utils.extend(instance, Axios.prototype, context);
+
+	  // Copy context to instance
+	  utils.extend(instance, context);
+
+	  return instance;
+	}
+
+	// Create the default instance to be exported
+	var axios = createInstance(defaults);
+
+	// Expose Axios class to allow class inheritance
+	axios.Axios = Axios;
+
+	// Factory for creating new instances
+	axios.create = function create(instanceConfig) {
+	  return createInstance(utils.merge(defaults, instanceConfig));
+	};
+
+	// Expose Cancel & CancelToken
+	axios.Cancel = __webpack_require__(203);
+	axios.CancelToken = __webpack_require__(204);
+	axios.isCancel = __webpack_require__(200);
+
+	// Expose all/spread
+	axios.all = function all(promises) {
+	  return Promise.all(promises);
+	};
+	axios.spread = __webpack_require__(205);
+
+	module.exports = axios;
+
+	// Allow use of default import syntax in TypeScript
+	module.exports.default = axios;
+
+
+/***/ },
+/* 183 */
+/***/ function(module, exports, __webpack_require__) {
+
+	'use strict';
+
+	var bind = __webpack_require__(184);
+
+	/*global toString:true*/
+
+	// utils is a library of generic helper functions non-specific to axios
+
+	var toString = Object.prototype.toString;
+
+	/**
+	 * Determine if a value is an Array
+	 *
+	 * @param {Object} val The value to test
+	 * @returns {boolean} True if value is an Array, otherwise false
+	 */
+	function isArray(val) {
+	  return toString.call(val) === '[object Array]';
+	}
+
+	/**
+	 * Determine if a value is an ArrayBuffer
+	 *
+	 * @param {Object} val The value to test
+	 * @returns {boolean} True if value is an ArrayBuffer, otherwise false
+	 */
+	function isArrayBuffer(val) {
+	  return toString.call(val) === '[object ArrayBuffer]';
+	}
+
+	/**
+	 * Determine if a value is a FormData
+	 *
+	 * @param {Object} val The value to test
+	 * @returns {boolean} True if value is an FormData, otherwise false
+	 */
+	function isFormData(val) {
+	  return (typeof FormData !== 'undefined') && (val instanceof FormData);
+	}
+
+	/**
+	 * Determine if a value is a view on an ArrayBuffer
+	 *
+	 * @param {Object} val The value to test
+	 * @returns {boolean} True if value is a view on an ArrayBuffer, otherwise false
+	 */
+	function isArrayBufferView(val) {
+	  var result;
+	  if ((typeof ArrayBuffer !== 'undefined') && (ArrayBuffer.isView)) {
+	    result = ArrayBuffer.isView(val);
+	  } else {
+	    result = (val) && (val.buffer) && (val.buffer instanceof ArrayBuffer);
+	  }
+	  return result;
+	}
+
+	/**
+	 * Determine if a value is a String
+	 *
+	 * @param {Object} val The value to test
+	 * @returns {boolean} True if value is a String, otherwise false
+	 */
+	function isString(val) {
+	  return typeof val === 'string';
+	}
+
+	/**
+	 * Determine if a value is a Number
+	 *
+	 * @param {Object} val The value to test
+	 * @returns {boolean} True if value is a Number, otherwise false
+	 */
+	function isNumber(val) {
+	  return typeof val === 'number';
+	}
+
+	/**
+	 * Determine if a value is undefined
+	 *
+	 * @param {Object} val The value to test
+	 * @returns {boolean} True if the value is undefined, otherwise false
+	 */
+	function isUndefined(val) {
+	  return typeof val === 'undefined';
+	}
+
+	/**
+	 * Determine if a value is an Object
+	 *
+	 * @param {Object} val The value to test
+	 * @returns {boolean} True if value is an Object, otherwise false
+	 */
+	function isObject(val) {
+	  return val !== null && typeof val === 'object';
+	}
+
+	/**
+	 * Determine if a value is a Date
+	 *
+	 * @param {Object} val The value to test
+	 * @returns {boolean} True if value is a Date, otherwise false
+	 */
+	function isDate(val) {
+	  return toString.call(val) === '[object Date]';
+	}
+
+	/**
+	 * Determine if a value is a File
+	 *
+	 * @param {Object} val The value to test
+	 * @returns {boolean} True if value is a File, otherwise false
+	 */
+	function isFile(val) {
+	  return toString.call(val) === '[object File]';
+	}
+
+	/**
+	 * Determine if a value is a Blob
+	 *
+	 * @param {Object} val The value to test
+	 * @returns {boolean} True if value is a Blob, otherwise false
+	 */
+	function isBlob(val) {
+	  return toString.call(val) === '[object Blob]';
+	}
+
+	/**
+	 * Determine if a value is a Function
+	 *
+	 * @param {Object} val The value to test
+	 * @returns {boolean} True if value is a Function, otherwise false
+	 */
+	function isFunction(val) {
+	  return toString.call(val) === '[object Function]';
+	}
+
+	/**
+	 * Determine if a value is a Stream
+	 *
+	 * @param {Object} val The value to test
+	 * @returns {boolean} True if value is a Stream, otherwise false
+	 */
+	function isStream(val) {
+	  return isObject(val) && isFunction(val.pipe);
+	}
+
+	/**
+	 * Determine if a value is a URLSearchParams object
+	 *
+	 * @param {Object} val The value to test
+	 * @returns {boolean} True if value is a URLSearchParams object, otherwise false
+	 */
+	function isURLSearchParams(val) {
+	  return typeof URLSearchParams !== 'undefined' && val instanceof URLSearchParams;
+	}
+
+	/**
+	 * Trim excess whitespace off the beginning and end of a string
+	 *
+	 * @param {String} str The String to trim
+	 * @returns {String} The String freed of excess whitespace
+	 */
+	function trim(str) {
+	  return str.replace(/^\s*/, '').replace(/\s*$/, '');
+	}
+
+	/**
+	 * Determine if we're running in a standard browser environment
+	 *
+	 * This allows axios to run in a web worker, and react-native.
+	 * Both environments support XMLHttpRequest, but not fully standard globals.
+	 *
+	 * web workers:
+	 *  typeof window -> undefined
+	 *  typeof document -> undefined
+	 *
+	 * react-native:
+	 *  typeof document.createElement -> undefined
+	 */
+	function isStandardBrowserEnv() {
+	  return (
+	    typeof window !== 'undefined' &&
+	    typeof document !== 'undefined' &&
+	    typeof document.createElement === 'function'
+	  );
+	}
+
+	/**
+	 * Iterate over an Array or an Object invoking a function for each item.
+	 *
+	 * If `obj` is an Array callback will be called passing
+	 * the value, index, and complete array for each item.
+	 *
+	 * If 'obj' is an Object callback will be called passing
+	 * the value, key, and complete object for each property.
+	 *
+	 * @param {Object|Array} obj The object to iterate
+	 * @param {Function} fn The callback to invoke for each item
+	 */
+	function forEach(obj, fn) {
+	  // Don't bother if no value provided
+	  if (obj === null || typeof obj === 'undefined') {
+	    return;
+	  }
+
+	  // Force an array if not already something iterable
+	  if (typeof obj !== 'object' && !isArray(obj)) {
+	    /*eslint no-param-reassign:0*/
+	    obj = [obj];
+	  }
+
+	  if (isArray(obj)) {
+	    // Iterate over array values
+	    for (var i = 0, l = obj.length; i < l; i++) {
+	      fn.call(null, obj[i], i, obj);
+	    }
+	  } else {
+	    // Iterate over object keys
+	    for (var key in obj) {
+	      if (Object.prototype.hasOwnProperty.call(obj, key)) {
+	        fn.call(null, obj[key], key, obj);
+	      }
+	    }
+	  }
+	}
+
+	/**
+	 * Accepts varargs expecting each argument to be an object, then
+	 * immutably merges the properties of each object and returns result.
+	 *
+	 * When multiple objects contain the same key the later object in
+	 * the arguments list will take precedence.
+	 *
+	 * Example:
+	 *
+	 * ```js
+	 * var result = merge({foo: 123}, {foo: 456});
+	 * console.log(result.foo); // outputs 456
+	 * ```
+	 *
+	 * @param {Object} obj1 Object to merge
+	 * @returns {Object} Result of all merge properties
+	 */
+	function merge(/* obj1, obj2, obj3, ... */) {
+	  var result = {};
+	  function assignValue(val, key) {
+	    if (typeof result[key] === 'object' && typeof val === 'object') {
+	      result[key] = merge(result[key], val);
+	    } else {
+	      result[key] = val;
+	    }
+	  }
+
+	  for (var i = 0, l = arguments.length; i < l; i++) {
+	    forEach(arguments[i], assignValue);
+	  }
+	  return result;
+	}
+
+	/**
+	 * Extends object a by mutably adding to it the properties of object b.
+	 *
+	 * @param {Object} a The object to be extended
+	 * @param {Object} b The object to copy properties from
+	 * @param {Object} thisArg The object to bind function to
+	 * @return {Object} The resulting value of object a
+	 */
+	function extend(a, b, thisArg) {
+	  forEach(b, function assignValue(val, key) {
+	    if (thisArg && typeof val === 'function') {
+	      a[key] = bind(val, thisArg);
+	    } else {
+	      a[key] = val;
+	    }
+	  });
+	  return a;
+	}
+
+	module.exports = {
+	  isArray: isArray,
+	  isArrayBuffer: isArrayBuffer,
+	  isFormData: isFormData,
+	  isArrayBufferView: isArrayBufferView,
+	  isString: isString,
+	  isNumber: isNumber,
+	  isObject: isObject,
+	  isUndefined: isUndefined,
+	  isDate: isDate,
+	  isFile: isFile,
+	  isBlob: isBlob,
+	  isFunction: isFunction,
+	  isStream: isStream,
+	  isURLSearchParams: isURLSearchParams,
+	  isStandardBrowserEnv: isStandardBrowserEnv,
+	  forEach: forEach,
+	  merge: merge,
+	  extend: extend,
+	  trim: trim
+	};
+
+
+/***/ },
+/* 184 */
+/***/ function(module, exports) {
+
+	'use strict';
+
+	module.exports = function bind(fn, thisArg) {
+	  return function wrap() {
+	    var args = new Array(arguments.length);
+	    for (var i = 0; i < args.length; i++) {
+	      args[i] = arguments[i];
+	    }
+	    return fn.apply(thisArg, args);
+	  };
+	};
+
+
+/***/ },
+/* 185 */
+/***/ function(module, exports, __webpack_require__) {
+
+	'use strict';
+
+	var defaults = __webpack_require__(186);
+	var utils = __webpack_require__(183);
+	var InterceptorManager = __webpack_require__(197);
+	var dispatchRequest = __webpack_require__(198);
+	var isAbsoluteURL = __webpack_require__(201);
+	var combineURLs = __webpack_require__(202);
+
+	/**
+	 * Create a new instance of Axios
+	 *
+	 * @param {Object} instanceConfig The default config for the instance
+	 */
+	function Axios(instanceConfig) {
+	  this.defaults = instanceConfig;
+	  this.interceptors = {
+	    request: new InterceptorManager(),
+	    response: new InterceptorManager()
+	  };
+	}
+
+	/**
+	 * Dispatch a request
+	 *
+	 * @param {Object} config The config specific for this request (merged with this.defaults)
+	 */
+	Axios.prototype.request = function request(config) {
+	  /*eslint no-param-reassign:0*/
+	  // Allow for axios('example/url'[, config]) a la fetch API
+	  if (typeof config === 'string') {
+	    config = utils.merge({
+	      url: arguments[0]
+	    }, arguments[1]);
+	  }
+
+	  config = utils.merge(defaults, this.defaults, { method: 'get' }, config);
+
+	  // Support baseURL config
+	  if (config.baseURL && !isAbsoluteURL(config.url)) {
+	    config.url = combineURLs(config.baseURL, config.url);
+	  }
+
+	  // Hook up interceptors middleware
+	  var chain = [dispatchRequest, undefined];
+	  var promise = Promise.resolve(config);
+
+	  this.interceptors.request.forEach(function unshiftRequestInterceptors(interceptor) {
+	    chain.unshift(interceptor.fulfilled, interceptor.rejected);
+	  });
+
+	  this.interceptors.response.forEach(function pushResponseInterceptors(interceptor) {
+	    chain.push(interceptor.fulfilled, interceptor.rejected);
+	  });
+
+	  while (chain.length) {
+	    promise = promise.then(chain.shift(), chain.shift());
+	  }
+
+	  return promise;
+	};
+
+	// Provide aliases for supported request methods
+	utils.forEach(['delete', 'get', 'head'], function forEachMethodNoData(method) {
+	  /*eslint func-names:0*/
+	  Axios.prototype[method] = function(url, config) {
+	    return this.request(utils.merge(config || {}, {
+	      method: method,
+	      url: url
+	    }));
+	  };
+	});
+
+	utils.forEach(['post', 'put', 'patch'], function forEachMethodWithData(method) {
+	  /*eslint func-names:0*/
+	  Axios.prototype[method] = function(url, data, config) {
+	    return this.request(utils.merge(config || {}, {
+	      method: method,
+	      url: url,
+	      data: data
+	    }));
+	  };
+	});
+
+	module.exports = Axios;
+
+
+/***/ },
+/* 186 */
+/***/ function(module, exports, __webpack_require__) {
+
+	/* WEBPACK VAR INJECTION */(function(process) {'use strict';
+
+	var utils = __webpack_require__(183);
+	var normalizeHeaderName = __webpack_require__(187);
+
+	var PROTECTION_PREFIX = /^\)\]\}',?\n/;
+	var DEFAULT_CONTENT_TYPE = {
+	  'Content-Type': 'application/x-www-form-urlencoded'
+	};
+
+	function setContentTypeIfUnset(headers, value) {
+	  if (!utils.isUndefined(headers) && utils.isUndefined(headers['Content-Type'])) {
+	    headers['Content-Type'] = value;
+	  }
+	}
+
+	function getDefaultAdapter() {
+	  var adapter;
+	  if (typeof XMLHttpRequest !== 'undefined') {
+	    // For browsers use XHR adapter
+	    adapter = __webpack_require__(188);
+	  } else if (typeof process !== 'undefined') {
+	    // For node use HTTP adapter
+	    adapter = __webpack_require__(188);
+	  }
+	  return adapter;
+	}
+
+	var defaults = {
+	  adapter: getDefaultAdapter(),
+
+	  transformRequest: [function transformRequest(data, headers) {
+	    normalizeHeaderName(headers, 'Content-Type');
+	    if (utils.isFormData(data) ||
+	      utils.isArrayBuffer(data) ||
+	      utils.isStream(data) ||
+	      utils.isFile(data) ||
+	      utils.isBlob(data)
+	    ) {
+	      return data;
+	    }
+	    if (utils.isArrayBufferView(data)) {
+	      return data.buffer;
+	    }
+	    if (utils.isURLSearchParams(data)) {
+	      setContentTypeIfUnset(headers, 'application/x-www-form-urlencoded;charset=utf-8');
+	      return data.toString();
+	    }
+	    if (utils.isObject(data)) {
+	      setContentTypeIfUnset(headers, 'application/json;charset=utf-8');
+	      return JSON.stringify(data);
+	    }
+	    return data;
+	  }],
+
+	  transformResponse: [function transformResponse(data) {
+	    /*eslint no-param-reassign:0*/
+	    if (typeof data === 'string') {
+	      data = data.replace(PROTECTION_PREFIX, '');
+	      try {
+	        data = JSON.parse(data);
+	      } catch (e) { /* Ignore */ }
+	    }
+	    return data;
+	  }],
+
+	  timeout: 0,
+
+	  xsrfCookieName: 'XSRF-TOKEN',
+	  xsrfHeaderName: 'X-XSRF-TOKEN',
+
+	  maxContentLength: -1,
+
+	  validateStatus: function validateStatus(status) {
+	    return status >= 200 && status < 300;
+	  }
+	};
+
+	defaults.headers = {
+	  common: {
+	    'Accept': 'application/json, text/plain, */*'
+	  }
+	};
+
+	utils.forEach(['delete', 'get', 'head'], function forEachMehtodNoData(method) {
+	  defaults.headers[method] = {};
+	});
+
+	utils.forEach(['post', 'put', 'patch'], function forEachMethodWithData(method) {
+	  defaults.headers[method] = utils.merge(DEFAULT_CONTENT_TYPE);
+	});
+
+	module.exports = defaults;
+
+	/* WEBPACK VAR INJECTION */}.call(exports, __webpack_require__(4)))
+
+/***/ },
+/* 187 */
+/***/ function(module, exports, __webpack_require__) {
+
+	'use strict';
+
+	var utils = __webpack_require__(183);
+
+	module.exports = function normalizeHeaderName(headers, normalizedName) {
+	  utils.forEach(headers, function processHeader(value, name) {
+	    if (name !== normalizedName && name.toUpperCase() === normalizedName.toUpperCase()) {
+	      headers[normalizedName] = value;
+	      delete headers[name];
+	    }
+	  });
+	};
+
+
+/***/ },
+/* 188 */
+/***/ function(module, exports, __webpack_require__) {
+
+	/* WEBPACK VAR INJECTION */(function(process) {'use strict';
+
+	var utils = __webpack_require__(183);
+	var settle = __webpack_require__(189);
+	var buildURL = __webpack_require__(192);
+	var parseHeaders = __webpack_require__(193);
+	var isURLSameOrigin = __webpack_require__(194);
+	var createError = __webpack_require__(190);
+	var btoa = (typeof window !== 'undefined' && window.btoa && window.btoa.bind(window)) || __webpack_require__(195);
+
+	module.exports = function xhrAdapter(config) {
+	  return new Promise(function dispatchXhrRequest(resolve, reject) {
+	    var requestData = config.data;
+	    var requestHeaders = config.headers;
+
+	    if (utils.isFormData(requestData)) {
+	      delete requestHeaders['Content-Type']; // Let the browser set it
+	    }
+
+	    var request = new XMLHttpRequest();
+	    var loadEvent = 'onreadystatechange';
+	    var xDomain = false;
+
+	    // For IE 8/9 CORS support
+	    // Only supports POST and GET calls and doesn't returns the response headers.
+	    // DON'T do this for testing b/c XMLHttpRequest is mocked, not XDomainRequest.
+	    if (process.env.NODE_ENV !== 'test' &&
+	        typeof window !== 'undefined' &&
+	        window.XDomainRequest && !('withCredentials' in request) &&
+	        !isURLSameOrigin(config.url)) {
+	      request = new window.XDomainRequest();
+	      loadEvent = 'onload';
+	      xDomain = true;
+	      request.onprogress = function handleProgress() {};
+	      request.ontimeout = function handleTimeout() {};
+	    }
+
+	    // HTTP basic authentication
+	    if (config.auth) {
+	      var username = config.auth.username || '';
+	      var password = config.auth.password || '';
+	      requestHeaders.Authorization = 'Basic ' + btoa(username + ':' + password);
+	    }
+
+	    request.open(config.method.toUpperCase(), buildURL(config.url, config.params, config.paramsSerializer), true);
+
+	    // Set the request timeout in MS
+	    request.timeout = config.timeout;
+
+	    // Listen for ready state
+	    request[loadEvent] = function handleLoad() {
+	      if (!request || (request.readyState !== 4 && !xDomain)) {
+	        return;
+	      }
+
+	      // The request errored out and we didn't get a response, this will be
+	      // handled by onerror instead
+	      // With one exception: request that using file: protocol, most browsers
+	      // will return status as 0 even though it's a successful request
+	      if (request.status === 0 && !(request.responseURL && request.responseURL.indexOf('file:') === 0)) {
+	        return;
+	      }
+
+	      // Prepare the response
+	      var responseHeaders = 'getAllResponseHeaders' in request ? parseHeaders(request.getAllResponseHeaders()) : null;
+	      var responseData = !config.responseType || config.responseType === 'text' ? request.responseText : request.response;
+	      var response = {
+	        data: responseData,
+	        // IE sends 1223 instead of 204 (https://github.com/mzabriskie/axios/issues/201)
+	        status: request.status === 1223 ? 204 : request.status,
+	        statusText: request.status === 1223 ? 'No Content' : request.statusText,
+	        headers: responseHeaders,
+	        config: config,
+	        request: request
+	      };
+
+	      settle(resolve, reject, response);
+
+	      // Clean up request
+	      request = null;
+	    };
+
+	    // Handle low level network errors
+	    request.onerror = function handleError() {
+	      // Real errors are hidden from us by the browser
+	      // onerror should only fire if it's a network error
+	      reject(createError('Network Error', config));
+
+	      // Clean up request
+	      request = null;
+	    };
+
+	    // Handle timeout
+	    request.ontimeout = function handleTimeout() {
+	      reject(createError('timeout of ' + config.timeout + 'ms exceeded', config, 'ECONNABORTED'));
+
+	      // Clean up request
+	      request = null;
+	    };
+
+	    // Add xsrf header
+	    // This is only done if running in a standard browser environment.
+	    // Specifically not if we're in a web worker, or react-native.
+	    if (utils.isStandardBrowserEnv()) {
+	      var cookies = __webpack_require__(196);
+
+	      // Add xsrf header
+	      var xsrfValue = (config.withCredentials || isURLSameOrigin(config.url)) && config.xsrfCookieName ?
+	          cookies.read(config.xsrfCookieName) :
+	          undefined;
+
+	      if (xsrfValue) {
+	        requestHeaders[config.xsrfHeaderName] = xsrfValue;
+	      }
+	    }
+
+	    // Add headers to the request
+	    if ('setRequestHeader' in request) {
+	      utils.forEach(requestHeaders, function setRequestHeader(val, key) {
+	        if (typeof requestData === 'undefined' && key.toLowerCase() === 'content-type') {
+	          // Remove Content-Type if data is undefined
+	          delete requestHeaders[key];
+	        } else {
+	          // Otherwise add header to the request
+	          request.setRequestHeader(key, val);
+	        }
+	      });
+	    }
+
+	    // Add withCredentials to request if needed
+	    if (config.withCredentials) {
+	      request.withCredentials = true;
+	    }
+
+	    // Add responseType to request if needed
+	    if (config.responseType) {
+	      try {
+	        request.responseType = config.responseType;
+	      } catch (e) {
+	        if (request.responseType !== 'json') {
+	          throw e;
+	        }
+	      }
+	    }
+
+	    // Handle progress if needed
+	    if (typeof config.onDownloadProgress === 'function') {
+	      request.addEventListener('progress', config.onDownloadProgress);
+	    }
+
+	    // Not all browsers support upload events
+	    if (typeof config.onUploadProgress === 'function' && request.upload) {
+	      request.upload.addEventListener('progress', config.onUploadProgress);
+	    }
+
+	    if (config.cancelToken) {
+	      // Handle cancellation
+	      config.cancelToken.promise.then(function onCanceled(cancel) {
+	        if (!request) {
+	          return;
+	        }
+
+	        request.abort();
+	        reject(cancel);
+	        // Clean up request
+	        request = null;
+	      });
+	    }
+
+	    if (requestData === undefined) {
+	      requestData = null;
+	    }
+
+	    // Send the request
+	    request.send(requestData);
+	  });
+	};
+
+	/* WEBPACK VAR INJECTION */}.call(exports, __webpack_require__(4)))
+
+/***/ },
+/* 189 */
+/***/ function(module, exports, __webpack_require__) {
+
+	'use strict';
+
+	var createError = __webpack_require__(190);
+
+	/**
+	 * Resolve or reject a Promise based on response status.
+	 *
+	 * @param {Function} resolve A function that resolves the promise.
+	 * @param {Function} reject A function that rejects the promise.
+	 * @param {object} response The response.
+	 */
+	module.exports = function settle(resolve, reject, response) {
+	  var validateStatus = response.config.validateStatus;
+	  // Note: status is not exposed by XDomainRequest
+	  if (!response.status || !validateStatus || validateStatus(response.status)) {
+	    resolve(response);
+	  } else {
+	    reject(createError(
+	      'Request failed with status code ' + response.status,
+	      response.config,
+	      null,
+	      response
+	    ));
+	  }
+	};
+
+
+/***/ },
+/* 190 */
+/***/ function(module, exports, __webpack_require__) {
+
+	'use strict';
+
+	var enhanceError = __webpack_require__(191);
+
+	/**
+	 * Create an Error with the specified message, config, error code, and response.
+	 *
+	 * @param {string} message The error message.
+	 * @param {Object} config The config.
+	 * @param {string} [code] The error code (for example, 'ECONNABORTED').
+	 @ @param {Object} [response] The response.
+	 * @returns {Error} The created error.
+	 */
+	module.exports = function createError(message, config, code, response) {
+	  var error = new Error(message);
+	  return enhanceError(error, config, code, response);
+	};
+
+
+/***/ },
+/* 191 */
+/***/ function(module, exports) {
+
+	'use strict';
+
+	/**
+	 * Update an Error with the specified config, error code, and response.
+	 *
+	 * @param {Error} error The error to update.
+	 * @param {Object} config The config.
+	 * @param {string} [code] The error code (for example, 'ECONNABORTED').
+	 @ @param {Object} [response] The response.
+	 * @returns {Error} The error.
+	 */
+	module.exports = function enhanceError(error, config, code, response) {
+	  error.config = config;
+	  if (code) {
+	    error.code = code;
+	  }
+	  error.response = response;
+	  return error;
+	};
+
+
+/***/ },
+/* 192 */
+/***/ function(module, exports, __webpack_require__) {
+
+	'use strict';
+
+	var utils = __webpack_require__(183);
+
+	function encode(val) {
+	  return encodeURIComponent(val).
+	    replace(/%40/gi, '@').
+	    replace(/%3A/gi, ':').
+	    replace(/%24/g, '$').
+	    replace(/%2C/gi, ',').
+	    replace(/%20/g, '+').
+	    replace(/%5B/gi, '[').
+	    replace(/%5D/gi, ']');
+	}
+
+	/**
+	 * Build a URL by appending params to the end
+	 *
+	 * @param {string} url The base of the url (e.g., http://www.google.com)
+	 * @param {object} [params] The params to be appended
+	 * @returns {string} The formatted url
+	 */
+	module.exports = function buildURL(url, params, paramsSerializer) {
+	  /*eslint no-param-reassign:0*/
+	  if (!params) {
+	    return url;
+	  }
+
+	  var serializedParams;
+	  if (paramsSerializer) {
+	    serializedParams = paramsSerializer(params);
+	  } else if (utils.isURLSearchParams(params)) {
+	    serializedParams = params.toString();
+	  } else {
+	    var parts = [];
+
+	    utils.forEach(params, function serialize(val, key) {
+	      if (val === null || typeof val === 'undefined') {
+	        return;
+	      }
+
+	      if (utils.isArray(val)) {
+	        key = key + '[]';
+	      }
+
+	      if (!utils.isArray(val)) {
+	        val = [val];
+	      }
+
+	      utils.forEach(val, function parseValue(v) {
+	        if (utils.isDate(v)) {
+	          v = v.toISOString();
+	        } else if (utils.isObject(v)) {
+	          v = JSON.stringify(v);
+	        }
+	        parts.push(encode(key) + '=' + encode(v));
+	      });
+	    });
+
+	    serializedParams = parts.join('&');
+	  }
+
+	  if (serializedParams) {
+	    url += (url.indexOf('?') === -1 ? '?' : '&') + serializedParams;
+	  }
+
+	  return url;
+	};
+
+
+/***/ },
+/* 193 */
+/***/ function(module, exports, __webpack_require__) {
+
+	'use strict';
+
+	var utils = __webpack_require__(183);
+
+	/**
+	 * Parse headers into an object
+	 *
+	 * ```
+	 * Date: Wed, 27 Aug 2014 08:58:49 GMT
+	 * Content-Type: application/json
+	 * Connection: keep-alive
+	 * Transfer-Encoding: chunked
+	 * ```
+	 *
+	 * @param {String} headers Headers needing to be parsed
+	 * @returns {Object} Headers parsed into an object
+	 */
+	module.exports = function parseHeaders(headers) {
+	  var parsed = {};
+	  var key;
+	  var val;
+	  var i;
+
+	  if (!headers) { return parsed; }
+
+	  utils.forEach(headers.split('\n'), function parser(line) {
+	    i = line.indexOf(':');
+	    key = utils.trim(line.substr(0, i)).toLowerCase();
+	    val = utils.trim(line.substr(i + 1));
+
+	    if (key) {
+	      parsed[key] = parsed[key] ? parsed[key] + ', ' + val : val;
+	    }
+	  });
+
+	  return parsed;
+	};
+
+
+/***/ },
+/* 194 */
+/***/ function(module, exports, __webpack_require__) {
+
+	'use strict';
+
+	var utils = __webpack_require__(183);
+
+	module.exports = (
+	  utils.isStandardBrowserEnv() ?
+
+	  // Standard browser envs have full support of the APIs needed to test
+	  // whether the request URL is of the same origin as current location.
+	  (function standardBrowserEnv() {
+	    var msie = /(msie|trident)/i.test(navigator.userAgent);
+	    var urlParsingNode = document.createElement('a');
+	    var originURL;
+
+	    /**
+	    * Parse a URL to discover it's components
+	    *
+	    * @param {String} url The URL to be parsed
+	    * @returns {Object}
+	    */
+	    function resolveURL(url) {
+	      var href = url;
+
+	      if (msie) {
+	        // IE needs attribute set twice to normalize properties
+	        urlParsingNode.setAttribute('href', href);
+	        href = urlParsingNode.href;
+	      }
+
+	      urlParsingNode.setAttribute('href', href);
+
+	      // urlParsingNode provides the UrlUtils interface - http://url.spec.whatwg.org/#urlutils
+	      return {
+	        href: urlParsingNode.href,
+	        protocol: urlParsingNode.protocol ? urlParsingNode.protocol.replace(/:$/, '') : '',
+	        host: urlParsingNode.host,
+	        search: urlParsingNode.search ? urlParsingNode.search.replace(/^\?/, '') : '',
+	        hash: urlParsingNode.hash ? urlParsingNode.hash.replace(/^#/, '') : '',
+	        hostname: urlParsingNode.hostname,
+	        port: urlParsingNode.port,
+	        pathname: (urlParsingNode.pathname.charAt(0) === '/') ?
+	                  urlParsingNode.pathname :
+	                  '/' + urlParsingNode.pathname
+	      };
+	    }
+
+	    originURL = resolveURL(window.location.href);
+
+	    /**
+	    * Determine if a URL shares the same origin as the current location
+	    *
+	    * @param {String} requestURL The URL to test
+	    * @returns {boolean} True if URL shares the same origin, otherwise false
+	    */
+	    return function isURLSameOrigin(requestURL) {
+	      var parsed = (utils.isString(requestURL)) ? resolveURL(requestURL) : requestURL;
+	      return (parsed.protocol === originURL.protocol &&
+	            parsed.host === originURL.host);
+	    };
+	  })() :
+
+	  // Non standard browser envs (web workers, react-native) lack needed support.
+	  (function nonStandardBrowserEnv() {
+	    return function isURLSameOrigin() {
+	      return true;
+	    };
+	  })()
+	);
+
+
+/***/ },
+/* 195 */
+/***/ function(module, exports) {
+
+	'use strict';
+
+	// btoa polyfill for IE<10 courtesy https://github.com/davidchambers/Base64.js
+
+	var chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/=';
+
+	function E() {
+	  this.message = 'String contains an invalid character';
+	}
+	E.prototype = new Error;
+	E.prototype.code = 5;
+	E.prototype.name = 'InvalidCharacterError';
+
+	function btoa(input) {
+	  var str = String(input);
+	  var output = '';
+	  for (
+	    // initialize result and counter
+	    var block, charCode, idx = 0, map = chars;
+	    // if the next str index does not exist:
+	    //   change the mapping table to "="
+	    //   check if d has no fractional digits
+	    str.charAt(idx | 0) || (map = '=', idx % 1);
+	    // "8 - idx % 1 * 8" generates the sequence 2, 4, 6, 8
+	    output += map.charAt(63 & block >> 8 - idx % 1 * 8)
+	  ) {
+	    charCode = str.charCodeAt(idx += 3 / 4);
+	    if (charCode > 0xFF) {
+	      throw new E();
+	    }
+	    block = block << 8 | charCode;
+	  }
+	  return output;
+	}
+
+	module.exports = btoa;
+
+
+/***/ },
+/* 196 */
+/***/ function(module, exports, __webpack_require__) {
+
+	'use strict';
+
+	var utils = __webpack_require__(183);
+
+	module.exports = (
+	  utils.isStandardBrowserEnv() ?
+
+	  // Standard browser envs support document.cookie
+	  (function standardBrowserEnv() {
+	    return {
+	      write: function write(name, value, expires, path, domain, secure) {
+	        var cookie = [];
+	        cookie.push(name + '=' + encodeURIComponent(value));
+
+	        if (utils.isNumber(expires)) {
+	          cookie.push('expires=' + new Date(expires).toGMTString());
+	        }
+
+	        if (utils.isString(path)) {
+	          cookie.push('path=' + path);
+	        }
+
+	        if (utils.isString(domain)) {
+	          cookie.push('domain=' + domain);
+	        }
+
+	        if (secure === true) {
+	          cookie.push('secure');
+	        }
+
+	        document.cookie = cookie.join('; ');
+	      },
+
+	      read: function read(name) {
+	        var match = document.cookie.match(new RegExp('(^|;\\s*)(' + name + ')=([^;]*)'));
+	        return (match ? decodeURIComponent(match[3]) : null);
+	      },
+
+	      remove: function remove(name) {
+	        this.write(name, '', Date.now() - 86400000);
+	      }
+	    };
+	  })() :
+
+	  // Non standard browser env (web workers, react-native) lack needed support.
+	  (function nonStandardBrowserEnv() {
+	    return {
+	      write: function write() {},
+	      read: function read() { return null; },
+	      remove: function remove() {}
+	    };
+	  })()
+	);
+
+
+/***/ },
+/* 197 */
+/***/ function(module, exports, __webpack_require__) {
+
+	'use strict';
+
+	var utils = __webpack_require__(183);
+
+	function InterceptorManager() {
+	  this.handlers = [];
+	}
+
+	/**
+	 * Add a new interceptor to the stack
+	 *
+	 * @param {Function} fulfilled The function to handle `then` for a `Promise`
+	 * @param {Function} rejected The function to handle `reject` for a `Promise`
+	 *
+	 * @return {Number} An ID used to remove interceptor later
+	 */
+	InterceptorManager.prototype.use = function use(fulfilled, rejected) {
+	  this.handlers.push({
+	    fulfilled: fulfilled,
+	    rejected: rejected
+	  });
+	  return this.handlers.length - 1;
+	};
+
+	/**
+	 * Remove an interceptor from the stack
+	 *
+	 * @param {Number} id The ID that was returned by `use`
+	 */
+	InterceptorManager.prototype.eject = function eject(id) {
+	  if (this.handlers[id]) {
+	    this.handlers[id] = null;
+	  }
+	};
+
+	/**
+	 * Iterate over all the registered interceptors
+	 *
+	 * This method is particularly useful for skipping over any
+	 * interceptors that may have become `null` calling `eject`.
+	 *
+	 * @param {Function} fn The function to call for each interceptor
+	 */
+	InterceptorManager.prototype.forEach = function forEach(fn) {
+	  utils.forEach(this.handlers, function forEachHandler(h) {
+	    if (h !== null) {
+	      fn(h);
+	    }
+	  });
+	};
+
+	module.exports = InterceptorManager;
+
+
+/***/ },
+/* 198 */
+/***/ function(module, exports, __webpack_require__) {
+
+	'use strict';
+
+	var utils = __webpack_require__(183);
+	var transformData = __webpack_require__(199);
+	var isCancel = __webpack_require__(200);
+	var defaults = __webpack_require__(186);
+
+	/**
+	 * Throws a `Cancel` if cancellation has been requested.
+	 */
+	function throwIfCancellationRequested(config) {
+	  if (config.cancelToken) {
+	    config.cancelToken.throwIfRequested();
+	  }
+	}
+
+	/**
+	 * Dispatch a request to the server using the configured adapter.
+	 *
+	 * @param {object} config The config that is to be used for the request
+	 * @returns {Promise} The Promise to be fulfilled
+	 */
+	module.exports = function dispatchRequest(config) {
+	  throwIfCancellationRequested(config);
+
+	  // Ensure headers exist
+	  config.headers = config.headers || {};
+
+	  // Transform request data
+	  config.data = transformData(
+	    config.data,
+	    config.headers,
+	    config.transformRequest
+	  );
+
+	  // Flatten headers
+	  config.headers = utils.merge(
+	    config.headers.common || {},
+	    config.headers[config.method] || {},
+	    config.headers || {}
+	  );
+
+	  utils.forEach(
+	    ['delete', 'get', 'head', 'post', 'put', 'patch', 'common'],
+	    function cleanHeaderConfig(method) {
+	      delete config.headers[method];
+	    }
+	  );
+
+	  var adapter = config.adapter || defaults.adapter;
+
+	  return adapter(config).then(function onAdapterResolution(response) {
+	    throwIfCancellationRequested(config);
+
+	    // Transform response data
+	    response.data = transformData(
+	      response.data,
+	      response.headers,
+	      config.transformResponse
+	    );
+
+	    return response;
+	  }, function onAdapterRejection(reason) {
+	    if (!isCancel(reason)) {
+	      throwIfCancellationRequested(config);
+
+	      // Transform response data
+	      if (reason && reason.response) {
+	        reason.response.data = transformData(
+	          reason.response.data,
+	          reason.response.headers,
+	          config.transformResponse
+	        );
+	      }
+	    }
+
+	    return Promise.reject(reason);
+	  });
+	};
+
+
+/***/ },
+/* 199 */
+/***/ function(module, exports, __webpack_require__) {
+
+	'use strict';
+
+	var utils = __webpack_require__(183);
+
+	/**
+	 * Transform the data for a request or a response
+	 *
+	 * @param {Object|String} data The data to be transformed
+	 * @param {Array} headers The headers for the request or response
+	 * @param {Array|Function} fns A single function or Array of functions
+	 * @returns {*} The resulting transformed data
+	 */
+	module.exports = function transformData(data, headers, fns) {
+	  /*eslint no-param-reassign:0*/
+	  utils.forEach(fns, function transform(fn) {
+	    data = fn(data, headers);
+	  });
+
+	  return data;
+	};
+
+
+/***/ },
+/* 200 */
+/***/ function(module, exports) {
+
+	'use strict';
+
+	module.exports = function isCancel(value) {
+	  return !!(value && value.__CANCEL__);
+	};
+
+
+/***/ },
+/* 201 */
+/***/ function(module, exports) {
+
+	'use strict';
+
+	/**
+	 * Determines whether the specified URL is absolute
+	 *
+	 * @param {string} url The URL to test
+	 * @returns {boolean} True if the specified URL is absolute, otherwise false
+	 */
+	module.exports = function isAbsoluteURL(url) {
+	  // A URL is considered absolute if it begins with "<scheme>://" or "//" (protocol-relative URL).
+	  // RFC 3986 defines scheme name as a sequence of characters beginning with a letter and followed
+	  // by any combination of letters, digits, plus, period, or hyphen.
+	  return /^([a-z][a-z\d\+\-\.]*:)?\/\//i.test(url);
+	};
+
+
+/***/ },
+/* 202 */
+/***/ function(module, exports) {
+
+	'use strict';
+
+	/**
+	 * Creates a new URL by combining the specified URLs
+	 *
+	 * @param {string} baseURL The base URL
+	 * @param {string} relativeURL The relative URL
+	 * @returns {string} The combined URL
+	 */
+	module.exports = function combineURLs(baseURL, relativeURL) {
+	  return baseURL.replace(/\/+$/, '') + '/' + relativeURL.replace(/^\/+/, '');
+	};
+
+
+/***/ },
+/* 203 */
+/***/ function(module, exports) {
+
+	'use strict';
+
+	/**
+	 * A `Cancel` is an object that is thrown when an operation is canceled.
+	 *
+	 * @class
+	 * @param {string=} message The message.
+	 */
+	function Cancel(message) {
+	  this.message = message;
+	}
+
+	Cancel.prototype.toString = function toString() {
+	  return 'Cancel' + (this.message ? ': ' + this.message : '');
+	};
+
+	Cancel.prototype.__CANCEL__ = true;
+
+	module.exports = Cancel;
+
+
+/***/ },
+/* 204 */
+/***/ function(module, exports, __webpack_require__) {
+
+	'use strict';
+
+	var Cancel = __webpack_require__(203);
+
+	/**
+	 * A `CancelToken` is an object that can be used to request cancellation of an operation.
+	 *
+	 * @class
+	 * @param {Function} executor The executor function.
+	 */
+	function CancelToken(executor) {
+	  if (typeof executor !== 'function') {
+	    throw new TypeError('executor must be a function.');
+	  }
+
+	  var resolvePromise;
+	  this.promise = new Promise(function promiseExecutor(resolve) {
+	    resolvePromise = resolve;
+	  });
+
+	  var token = this;
+	  executor(function cancel(message) {
+	    if (token.reason) {
+	      // Cancellation has already been requested
+	      return;
+	    }
+
+	    token.reason = new Cancel(message);
+	    resolvePromise(token.reason);
+	  });
+	}
+
+	/**
+	 * Throws a `Cancel` if cancellation has been requested.
+	 */
+	CancelToken.prototype.throwIfRequested = function throwIfRequested() {
+	  if (this.reason) {
+	    throw this.reason;
+	  }
+	};
+
+	/**
+	 * Returns an object that contains a new `CancelToken` and a function that, when called,
+	 * cancels the `CancelToken`.
+	 */
+	CancelToken.source = function source() {
+	  var cancel;
+	  var token = new CancelToken(function executor(c) {
+	    cancel = c;
+	  });
+	  return {
+	    token: token,
+	    cancel: cancel
+	  };
+	};
+
+	module.exports = CancelToken;
+
+
+/***/ },
+/* 205 */
+/***/ function(module, exports) {
+
+	'use strict';
+
+	/**
+	 * Syntactic sugar for invoking a function and expanding an array for arguments.
+	 *
+	 * Common use case would be to use `Function.prototype.apply`.
+	 *
+	 *  ```js
+	 *  function f(x, y, z) {}
+	 *  var args = [1, 2, 3];
+	 *  f.apply(null, args);
+	 *  ```
+	 *
+	 * With `spread` this example can be re-written.
+	 *
+	 *  ```js
+	 *  spread(function(x, y, z) {})([1, 2, 3]);
+	 *  ```
+	 *
+	 * @param {Function} callback
+	 * @returns {Function}
+	 */
+	module.exports = function spread(callback) {
+	  return function wrap(arr) {
+	    return callback.apply(null, arr);
+	  };
+	};
+
+
+/***/ },
+/* 206 */
+/***/ function(module, exports, __webpack_require__) {
+
 	/**
 	 * Module dependencies
 	 */
 
-	var debug = __webpack_require__(181)('jsonp');
+	var debug = __webpack_require__(207)('jsonp');
 
 	/**
 	 * Module exports.
@@ -21813,7 +23286,7 @@
 
 
 /***/ },
-/* 181 */
+/* 207 */
 /***/ function(module, exports, __webpack_require__) {
 
 	/* WEBPACK VAR INJECTION */(function(process) {/**
@@ -21822,7 +23295,7 @@
 	 * Expose `debug()` as the module.
 	 */
 
-	exports = module.exports = __webpack_require__(182);
+	exports = module.exports = __webpack_require__(208);
 	exports.log = log;
 	exports.formatArgs = formatArgs;
 	exports.save = save;
@@ -22002,7 +23475,7 @@
 	/* WEBPACK VAR INJECTION */}.call(exports, __webpack_require__(4)))
 
 /***/ },
-/* 182 */
+/* 208 */
 /***/ function(module, exports, __webpack_require__) {
 
 	
@@ -22018,7 +23491,7 @@
 	exports.disable = disable;
 	exports.enable = enable;
 	exports.enabled = enabled;
-	exports.humanize = __webpack_require__(183);
+	exports.humanize = __webpack_require__(209);
 
 	/**
 	 * The currently active debug mode names, and names to skip.
@@ -22207,7 +23680,7 @@
 
 
 /***/ },
-/* 183 */
+/* 209 */
 /***/ function(module, exports) {
 
 	/**
@@ -22362,7 +23835,7 @@
 
 
 /***/ },
-/* 184 */
+/* 210 */
 /***/ function(module, exports, __webpack_require__) {
 
 	'use strict';
@@ -22377,23 +23850,19 @@
 
 	var _react2 = _interopRequireDefault(_react);
 
-	var _styles = __webpack_require__(185);
-
-	var _styles2 = _interopRequireDefault(_styles);
-
-	var _Chart = __webpack_require__(186);
+	var _Chart = __webpack_require__(211);
 
 	var _Chart2 = _interopRequireDefault(_Chart);
 
-	var _StockContainer = __webpack_require__(190);
+	var _StockContainer = __webpack_require__(215);
 
 	var _StockContainer2 = _interopRequireDefault(_StockContainer);
 
-	var _LookupContainer = __webpack_require__(193);
+	var _LookupContainer = __webpack_require__(218);
 
 	var _LookupContainer2 = _interopRequireDefault(_LookupContainer);
 
-	var _Footer = __webpack_require__(197);
+	var _Footer = __webpack_require__(222);
 
 	var _Footer2 = _interopRequireDefault(_Footer);
 
@@ -22416,7 +23885,6 @@
 	    _this.handleAdd = _this.handleAdd.bind(_this);
 	    _this.handleDel = _this.handleDel.bind(_this);
 	    _this.handleLookup = _this.handleLookup.bind(_this);
-	    _this.handleAddRef = _this.handleAddRef.bind(_this);
 	    return _this;
 	  }
 
@@ -22436,11 +23904,6 @@
 	      this.props.onLookup(newTerm);
 	    }
 	  }, {
-	    key: 'handleAddRef',
-	    value: function handleAddRef(code) {
-	      this.props.onAddRef(code);
-	    }
-	  }, {
 	    key: 'render',
 	    value: function render() {
 	      var stocks = this.props.chartData.map(function (stock) {
@@ -22458,10 +23921,10 @@
 	          _react2.default.createElement('div', { className: 'col-m-1 col-2', style: { height: "10px" } }),
 	          _react2.default.createElement(
 	            'div',
-	            { className: 'col-m-10 col-8', style: { backgroundColor: "yellow" } },
+	            { className: 'col-m-10 col-8', style: { backgroundColor: "#383839" } },
 	            _react2.default.createElement(_Chart2.default, { chartData: this.props.chartData }),
-	            _react2.default.createElement(_StockContainer2.default, { onAdd: this.handleAdd, onDel: this.handleDel, addErr: this.props.onAddErr, stocks: stocks }),
-	            _react2.default.createElement(_LookupContainer2.default, { onLookup: this.handleLookup, lookupResult: this.props.lookupResult, onAddRef: this.handleAddRef })
+	            _react2.default.createElement(_StockContainer2.default, { onAdd: this.handleAdd, onDel: this.handleDel, addErr: this.props.addErr, stocks: stocks }),
+	            _react2.default.createElement(_LookupContainer2.default, { onLookup: this.handleLookup, lookupResult: this.props.lookupResult, onAdd: this.handleAdd })
 	          ),
 	          _react2.default.createElement('div', { className: 'col-m-1 col-2', style: { height: "10px" } })
 	        ),
@@ -22479,37 +23942,13 @@
 	  onLookup: _react.PropTypes.func.isRequired,
 	  lookupResult: _react.PropTypes.array,
 	  addErr: _react.PropTypes.string,
-	  chartData: _react.PropTypes.array.isRequired,
-	  onAddRef: _react.PropTypes.func.isRequired
+	  chartData: _react.PropTypes.array.isRequired
 	};
 
 	exports.default = Main;
 
 /***/ },
-/* 185 */
-/***/ function(module, exports) {
-
-	'use strict';
-
-	Object.defineProperty(exports, "__esModule", {
-	  value: true
-	});
-	var styles = {
-	  spaceLeft: {
-	    marginLeft: '10px'
-	  },
-	  spaceTop: {
-	    marginTop: '20px'
-	  },
-	  textCenter: {
-	    textAlign: 'center'
-	  }
-	};
-
-	exports.default = styles;
-
-/***/ },
-/* 186 */
+/* 211 */
 /***/ function(module, exports, __webpack_require__) {
 
 	'use strict';
@@ -22524,11 +23963,11 @@
 
 	var _react2 = _interopRequireDefault(_react);
 
-	var _ReactHighstock = __webpack_require__(187);
+	var _ReactHighstock = __webpack_require__(212);
 
 	var _ReactHighstock2 = _interopRequireDefault(_ReactHighstock);
 
-	var _darkUnica = __webpack_require__(189);
+	var _darkUnica = __webpack_require__(214);
 
 	var _darkUnica2 = _interopRequireDefault(_darkUnica);
 
@@ -22539,14 +23978,15 @@
 	function _possibleConstructorReturn(self, call) { if (!self) { throw new ReferenceError("this hasn't been initialised - super() hasn't been called"); } return call && (typeof call === "object" || typeof call === "function") ? call : self; }
 
 	function _inherits(subClass, superClass) { if (typeof superClass !== "function" && superClass !== null) { throw new TypeError("Super expression must either be null or a function, not " + typeof superClass); } subClass.prototype = Object.create(superClass && superClass.prototype, { constructor: { value: subClass, enumerable: false, writable: true, configurable: true } }); if (superClass) Object.setPrototypeOf ? Object.setPrototypeOf(subClass, superClass) : subClass.__proto__ = superClass; }
-	// import styles from '../styles';
 
+	var chartReflow = undefined; //suspend reflow to allow animation
 
 	(0, _darkUnica2.default)(_ReactHighstock2.default.Highcharts);
 
 	var config = {
 	  chart: {
-	    height: 500
+	    height: 500,
+	    backgroundColor: "#383839"
 	  },
 	  rangeSelector: {
 	    selected: 1
@@ -22566,6 +24006,24 @@
 	  }
 
 	  _createClass(Chart, [{
+	    key: 'componentDidUpdate',
+
+	    //temporarily suspend reflow to allow animation - it seems that reflow suspends animation, but on the other side it is needed for page resizing
+	    value: function componentDidUpdate(prevProps) {
+	      var _this2 = this;
+
+	      if (prevProps.chartData.length !== this.props.chartData.length) {
+	        (function () {
+	          var chart = _this2.refs.chart.getChart();
+	          var chartReflow = chart.reflow;
+	          chart.reflow = function () {};
+	          setTimeout(function () {
+	            return chart.reflow = chartReflow;
+	          });
+	        })();
+	      }
+	    }
+	  }, {
 	    key: 'render',
 	    value: function render() {
 	      if (this.props.chartData.length === 0) {
@@ -22591,7 +24049,7 @@
 	      return _react2.default.createElement(
 	        'div',
 	        { style: { height: "500px" } },
-	        _react2.default.createElement(_ReactHighstock2.default, { config: config })
+	        _react2.default.createElement(_ReactHighstock2.default, { config: config, ref: 'chart' })
 	      );
 	    }
 	  }]);
@@ -22606,12 +24064,12 @@
 	exports.default = Chart;
 
 /***/ },
-/* 187 */
+/* 212 */
 /***/ function(module, exports, __webpack_require__) {
 
 	(function webpackUniversalModuleDefinition(root, factory) {
 		if(true)
-			module.exports = factory(__webpack_require__(2), __webpack_require__(188));
+			module.exports = factory(__webpack_require__(2), __webpack_require__(213));
 		else if(typeof define === 'function' && define.amd)
 			define(["react", "highcharts/highstock"], factory);
 		else if(typeof exports === 'object')
@@ -22785,7 +24243,7 @@
 	;
 
 /***/ },
-/* 188 */
+/* 213 */
 /***/ function(module, exports) {
 
 	/*
@@ -23294,7 +24752,7 @@
 
 
 /***/ },
-/* 189 */
+/* 214 */
 /***/ function(module, exports) {
 
 	/**
@@ -23543,7 +25001,7 @@
 
 
 /***/ },
-/* 190 */
+/* 215 */
 /***/ function(module, exports, __webpack_require__) {
 
 	'use strict';
@@ -23558,11 +25016,11 @@
 
 	var _react2 = _interopRequireDefault(_react);
 
-	var _StockBox = __webpack_require__(191);
+	var _StockBox = __webpack_require__(216);
 
 	var _StockBox2 = _interopRequireDefault(_StockBox);
 
-	var _InputBox = __webpack_require__(192);
+	var _InputBox = __webpack_require__(217);
 
 	var _InputBox2 = _interopRequireDefault(_InputBox);
 
@@ -23607,7 +25065,7 @@
 	        'div',
 	        null,
 	        stockBoxes,
-	        _react2.default.createElement(_InputBox2.default, { onAdd: this.handleAdd, addErr: this.props.onAddErr })
+	        _react2.default.createElement(_InputBox2.default, { onAdd: this.handleAdd, addErr: this.props.addErr })
 	      );
 	    }
 	  }]);
@@ -23625,7 +25083,7 @@
 	exports.default = StockContainer;
 
 /***/ },
-/* 191 */
+/* 216 */
 /***/ function(module, exports, __webpack_require__) {
 
 	"use strict";
@@ -23670,13 +25128,13 @@
 	        value: function render() {
 	            return _react2.default.createElement(
 	                "div",
-	                { className: "col-m-6 col-4", style: { fontFamily: "Verdana" } },
+	                { className: "col-m-6 col-4", style: { fontFamily: "Trebuchet MS, Verdana" } },
 	                _react2.default.createElement(
 	                    "div",
 	                    { style: { backgroundColor: "#fff", height: "140px", margin: "10px", borderRadius: "6px" } },
 	                    _react2.default.createElement(
 	                        "div",
-	                        { style: { margin: "0 0 0 90%", padding: "10px", width: "20px", fontSize: "1em", cursor: "pointer" },
+	                        { style: { margin: "0 0 0 90%", padding: "10px 10px 0 0", width: "20px", fontSize: "1em", cursor: "pointer" },
 	                            onClick: this.handleDel },
 	                        "x"
 	                    ),
@@ -23706,7 +25164,7 @@
 	exports.default = StockBox;
 
 /***/ },
-/* 192 */
+/* 217 */
 /***/ function(module, exports, __webpack_require__) {
 
 	"use strict";
@@ -23758,14 +25216,12 @@
 	        key: "handleAdd",
 	        value: function handleAdd(e) {
 	            e.preventDefault();
+	            this.props.onAdd(this.state.newCode.trim());
 	            if (this.state.newCode.trim().length === 0) {
-	                if (this.props.addErr !== "") {
-	                    this.setState({
-	                        status: "Should not be empty"
-	                    });
-	                }
+	                this.setState({
+	                    status: "Should not be empty"
+	                });
 	            } else {
-	                this.props.onAdd(this.state.newCode);
 	                this.setState({
 	                    newCode: "",
 	                    status: ""
@@ -23783,27 +25239,27 @@
 	                    { style: { backgroundColor: "#fff", height: "140px", margin: "10px", borderRadius: "6px" } },
 	                    _react2.default.createElement(
 	                        "div",
-	                        { style: { padding: "20px 0 20px 20px", fontFamily: "Verdana" } },
+	                        { style: { padding: "20px 0 20px 20px", fontFamily: "Trebuchet MS, Verdana" } },
 	                        "Syncs in realtime across clients"
 	                    ),
 	                    _react2.default.createElement("input", { placeholder: "Stock code", type: "text", value: this.state.newCode, onChange: this.handleChange,
 	                        style: { margin: "0 0 0 20px", height: "40px", maxWidth: "50%",
-	                            fontSize: "1.1em", fontFamily: "Verdana", borderRadius: "6px" } }),
+	                            fontSize: "1.1em", fontFamily: "Trebuchet MS, Verdana", borderRadius: "6px" } }),
 	                    _react2.default.createElement(
 	                        "button",
 	                        { style: { margin: "0 0 0 20px", width: "60px", height: "40px",
-	                                fontSize: "1em", fontFamily: "Verdana", borderRadius: "6px", backgroundColor: "#5CB85C",
+	                                fontSize: "1em", fontFamily: "Trebuchet MS, Verdana", borderRadius: "6px", backgroundColor: "#5CB85C",
 	                                color: "#fff" }, onClick: this.handleAdd },
 	                        "Add"
 	                    ),
 	                    _react2.default.createElement(
 	                        "div",
-	                        { style: { padding: "10px 0 0 20px", fontFamily: "Verdana", color: "#f00" } },
+	                        { style: { padding: "10px 0 0 20px", fontFamily: "Trebuchet MS, Verdana", color: "#f00" } },
 	                        this.state.status
 	                    ),
 	                    _react2.default.createElement(
 	                        "div",
-	                        { style: { padding: "0 0 0 20px", fontFamily: "Verdana", color: "#f00" } },
+	                        { style: { padding: "0 0 0 20px", fontFamily: "Trebuchet MS, Verdana", color: "#f00" } },
 	                        this.props.addErr
 	                    )
 	                )
@@ -23822,7 +25278,7 @@
 	exports.default = InputBox;
 
 /***/ },
-/* 193 */
+/* 218 */
 /***/ function(module, exports, __webpack_require__) {
 
 	'use strict';
@@ -23837,11 +25293,11 @@
 
 	var _react2 = _interopRequireDefault(_react);
 
-	var _LookupForm = __webpack_require__(194);
+	var _LookupForm = __webpack_require__(219);
 
 	var _LookupForm2 = _interopRequireDefault(_LookupForm);
 
-	var _LookupResults = __webpack_require__(195);
+	var _LookupResults = __webpack_require__(220);
 
 	var _LookupResults2 = _interopRequireDefault(_LookupResults);
 
@@ -23862,7 +25318,7 @@
 	        var _this = _possibleConstructorReturn(this, (LookupContainer.__proto__ || Object.getPrototypeOf(LookupContainer)).call(this));
 
 	        _this.handleLookup = _this.handleLookup.bind(_this);
-	        _this.handleAddRef = _this.handleAddRef.bind(_this);
+	        _this.handleAdd = _this.handleAdd.bind(_this);
 	        return _this;
 	    }
 
@@ -23872,9 +25328,9 @@
 	            this.props.onLookup(newTerm);
 	        }
 	    }, {
-	        key: 'handleAddRef',
-	        value: function handleAddRef(code) {
-	            this.props.onAddRef(code);
+	        key: 'handleAdd',
+	        value: function handleAdd(code) {
+	            this.props.onAdd(code);
 	        }
 	    }, {
 	        key: 'render',
@@ -23883,7 +25339,7 @@
 	                'div',
 	                { className: 'col-m-12 col-12' },
 	                _react2.default.createElement(_LookupForm2.default, { onLookup: this.handleLookup }),
-	                _react2.default.createElement(_LookupResults2.default, { lookupResult: this.props.lookupResult, onAddRef: this.handleAddRef })
+	                _react2.default.createElement(_LookupResults2.default, { lookupResult: this.props.lookupResult, onAdd: this.handleAdd })
 	            );
 	        }
 	    }]);
@@ -23894,13 +25350,13 @@
 	LookupContainer.propTypes = {
 	    onLookup: _react.PropTypes.func.isRequired,
 	    lookupResult: _react.PropTypes.array,
-	    onAddRef: _react.PropTypes.func.isRequired
+	    onAdd: _react.PropTypes.func.isRequired
 	};
 
 	exports.default = LookupContainer;
 
 /***/ },
-/* 194 */
+/* 219 */
 /***/ function(module, exports, __webpack_require__) {
 
 	"use strict";
@@ -23975,22 +25431,22 @@
 	                    { style: { backgroundColor: "#fff", height: "140px", margin: "10px", borderRadius: "6px" } },
 	                    _react2.default.createElement(
 	                        "div",
-	                        { style: { padding: "20px 0 20px 20px", fontFamily: "Verdana" } },
+	                        { style: { padding: "20px 0 20px 20px", fontFamily: "Trebuchet MS, Verdana" } },
 	                        "Code Lookup"
 	                    ),
 	                    _react2.default.createElement("input", { placeholder: "Term, e.g. Netflix", type: "text", value: this.state.newTerm, onChange: this.handleChange,
 	                        style: { margin: "0 0 0 20px", height: "40px", maxWidth: "60%",
-	                            fontSize: "1.1em", fontFamily: "Verdana", borderRadius: "6px" } }),
+	                            fontSize: "1.1em", fontFamily: "Trebuchet MS, Verdana", borderRadius: "6px" } }),
 	                    _react2.default.createElement(
 	                        "button",
 	                        { style: { margin: "0 0 0 20px", width: "80px", height: "40px",
-	                                fontSize: "1em", fontFamily: "Verdana", borderRadius: "6px", backgroundColor: "#5CB85C",
+	                                fontSize: "1em", fontFamily: "Trebuchet MS, Verdana", borderRadius: "6px", backgroundColor: "#5CB85C",
 	                                color: "#fff" }, onClick: this.handleLookup },
 	                        "Lookup"
 	                    ),
 	                    _react2.default.createElement(
 	                        "div",
-	                        { style: { padding: "10px 0 0 20px", fontFamily: "Verdana", color: "#f00" } },
+	                        { style: { padding: "10px 0 0 20px", fontFamily: "Trebuchet MS, Verdana", color: "#f00" } },
 	                        this.state.status
 	                    )
 	                )
@@ -24008,7 +25464,7 @@
 	exports.default = LookupForm;
 
 /***/ },
-/* 195 */
+/* 220 */
 /***/ function(module, exports, __webpack_require__) {
 
 	'use strict';
@@ -24023,7 +25479,7 @@
 
 	var _react2 = _interopRequireDefault(_react);
 
-	var _LookupResult = __webpack_require__(196);
+	var _LookupResult = __webpack_require__(221);
 
 	var _LookupResult2 = _interopRequireDefault(_LookupResult);
 
@@ -24043,14 +25499,14 @@
 
 	        var _this = _possibleConstructorReturn(this, (LookupResults.__proto__ || Object.getPrototypeOf(LookupResults)).call(this));
 
-	        _this.handleAddRef = _this.handleAddRef.bind(_this);
+	        _this.handleAdd = _this.handleAdd.bind(_this);
 	        return _this;
 	    }
 
 	    _createClass(LookupResults, [{
-	        key: 'handleAddRef',
-	        value: function handleAddRef(code) {
-	            this.props.onAddRef(code);
+	        key: 'handleAdd',
+	        value: function handleAdd(code) {
+	            this.props.onAdd(code);
 	        }
 	    }, {
 	        key: 'render',
@@ -24060,7 +25516,7 @@
 	                return _react2.default.createElement('div', { className: 'col-m-6 col-6', style: { height: "10px" } });
 	            } else {
 	                var results = resultsArray.map(function (r, i) {
-	                    return _react2.default.createElement(_LookupResult2.default, { key: i, result: r, onAddRef: this.handleAddRef });
+	                    return _react2.default.createElement(_LookupResult2.default, { key: i, result: r, onAdd: this.handleAdd });
 	                }.bind(this));
 	                return _react2.default.createElement(
 	                    'div',
@@ -24076,13 +25532,13 @@
 
 	LookupResults.propTypes = {
 	    lookupResult: _react.PropTypes.array,
-	    onAddRef: _react.PropTypes.func.isRequired
+	    onAdd: _react.PropTypes.func.isRequired
 	};
 
 	exports.default = LookupResults;
 
 /***/ },
-/* 196 */
+/* 221 */
 /***/ function(module, exports, __webpack_require__) {
 
 	"use strict";
@@ -24113,14 +25569,14 @@
 
 	        var _this = _possibleConstructorReturn(this, (LookupResult.__proto__ || Object.getPrototypeOf(LookupResult)).call(this));
 
-	        _this.handleAddRef = _this.handleAddRef.bind(_this);
+	        _this.handleAdd = _this.handleAdd.bind(_this);
 	        return _this;
 	    }
 
 	    _createClass(LookupResult, [{
-	        key: "handleAddRef",
-	        value: function handleAddRef() {
-	            this.props.onAddRef(this.props.result.Symbol);
+	        key: "handleAdd",
+	        value: function handleAdd() {
+	            this.props.onAdd(this.props.result.Symbol);
 	        }
 	    }, {
 	        key: "render",
@@ -24128,31 +25584,19 @@
 	            if (this.props.result.error) {
 	                return _react2.default.createElement(
 	                    "div",
-	                    { style: { margin: "10px", padding: "10px 0 10px 20px", fontFamily: "Verdana", backgroundColor: "#ccc",
+	                    { style: { margin: "10px", padding: "10px 0 10px 20px", fontFamily: "Trebuchet MS, Verdana", backgroundColor: "#ccc",
 	                            borderRadius: "6px" } },
 	                    _react2.default.createElement(
 	                        "div",
-	                        { style: { padding: "20px 0 0 20px", fontFamily: "Verdana" } },
-	                        "Error: ",
+	                        { style: { padding: "20px 0 0 20px", fontFamily: "Trebuchet MS, Verdana" } },
 	                        this.props.result.error
-	                    )
-	                );
-	            } else if (this.props.result.none) {
-	                return _react2.default.createElement(
-	                    "div",
-	                    { style: { margin: "10px", padding: "10px 0 10px 20px", fontFamily: "Verdana", backgroundColor: "#ccc",
-	                            borderRadius: "6px" } },
-	                    _react2.default.createElement(
-	                        "div",
-	                        { style: { padding: "20px 0 0 20px", fontFamily: "Verdana" } },
-	                        "No results found"
 	                    )
 	                );
 	            } else {
 	                return _react2.default.createElement(
 	                    "div",
-	                    { style: { margin: "10px", padding: "10px 0 10px 20px", fontFamily: "Verdana", backgroundColor: "#ccc",
-	                            borderRadius: "6px", cursor: "pointer" }, onClick: this.handleAddRef },
+	                    { style: { margin: "10px", padding: "10px 0 10px 20px", fontFamily: "Trebuchet MS, Verdana", backgroundColor: "#ccc",
+	                            borderRadius: "6px", cursor: "pointer" }, onClick: this.handleAdd },
 	                    _react2.default.createElement(
 	                        "div",
 	                        null,
@@ -24181,13 +25625,13 @@
 
 	LookupResult.propTypes = {
 	    result: _react.PropTypes.object.isRequired,
-	    onAddRef: _react.PropTypes.func.isRequired
+	    onAdd: _react.PropTypes.func.isRequired
 	};
 
 	exports.default = LookupResult;
 
 /***/ },
-/* 197 */
+/* 222 */
 /***/ function(module, exports, __webpack_require__) {
 
 	"use strict";
@@ -24205,8 +25649,19 @@
 	var Footer = function Footer(props) {
 	  return _react2.default.createElement(
 	    "div",
-	    { style: { textAlign: "center", marginTop: "30px" } },
-	    "footerrrr"
+	    { style: { textAlign: "center", marginTop: "30px", fontFamily: "Trebuchet MS, Verdana", fontSize: ".9em", color: "#fff" } },
+	    "Financial data from ",
+	    _react2.default.createElement(
+	      "a",
+	      { href: "http://www.markit.com/Product/Markit-Digital" },
+	      "MarkitOnDemand"
+	    ),
+	    ", Graph from ",
+	    _react2.default.createElement(
+	      "a",
+	      { href: "http://www.highcharts.com" },
+	      "Highcharts"
+	    )
 	  );
 	};
 

@@ -1,13 +1,14 @@
 import React, { PropTypes } from 'react';
-// import styles from '../styles';
 import ReactHighstock from 'react-highcharts/ReactHighstock.src';
 import theme from 'highcharts/themes/dark-unica.js';
+let chartReflow = undefined; //suspend reflow to allow animation
 
 theme(ReactHighstock.Highcharts);
 
 var config = {
   chart: {
-    height: 500
+    height: 500,
+    backgroundColor: "#383839"
   },
   rangeSelector: {
     selected: 1
@@ -18,6 +19,16 @@ var config = {
 };
 
 class Chart extends React.Component {
+  //temporarily suspend reflow to allow animation - it seems that reflow suspends animation, but on the other side it is needed for page resizing
+  componentDidUpdate(prevProps) {
+      if (prevProps.chartData.length !== this.props.chartData.length) {
+        let chart = this.refs.chart.getChart();
+        const chartReflow = chart.reflow;
+        chart.reflow = () => {};
+        setTimeout(() => (chart.reflow = chartReflow));
+      }    
+  }
+  
   render() {
     if (this.props.chartData.length === 0) {      
       config.series = [{
@@ -26,7 +37,7 @@ class Chart extends React.Component {
         tooltip: {
           valueDecimals: 2
         }  
-      }]
+      }];      
     } else {      
       config.series = this.props.chartData.map(function(stock) {
         return {
@@ -36,12 +47,12 @@ class Chart extends React.Component {
             valueDecimals: 2
           }
         }
-      });
+      });      
     }
     
     return (       
       <div style={{height: "500px"}}>
-          <ReactHighstock config={config}></ReactHighstock>
+          <ReactHighstock config={config} ref="chart"></ReactHighstock>
       </div>
     )
   }

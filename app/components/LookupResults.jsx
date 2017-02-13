@@ -4,11 +4,11 @@ import LookupResult from './LookupResult.jsx';
 class LookupResults extends Component {
     constructor() {
         super();
-        this.handleAddRef = this.handleAddRef.bind(this);
+        this.handleAdd = this.handleAdd.bind(this);
     }
 
-    handleAddRef(code) {
-        this.props.onAddRef(code);
+    handleAdd(code) {
+        this.props.onAdd(code);
     }
 
     render() {
@@ -20,7 +20,7 @@ class LookupResults extends Component {
         } else {
             var results = resultsArray.map(function(r, i) {
                 return (
-                    <LookupResult key={i} result={r} onAddRef={this.handleAddRef} />
+                    <LookupResult key={i} result={r} onAdd={this.handleAdd} />
                 )
             }.bind(this));
             return (
@@ -34,7 +34,7 @@ class LookupResults extends Component {
 
 LookupResults.propTypes = {
     lookupResult: PropTypes.array,
-    onAddRef: PropTypes.func.isRequired
+    onAdd: PropTypes.func.isRequired
 };
 
 export default LookupResults;

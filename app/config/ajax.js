@@ -2,20 +2,16 @@ import axios from 'axios';
 
 module.exports = {
 
-  yelp_ajax: function(location) {
-    return axios.get('/api/' + location)
+  add: function(code) {
+    return axios.get('/api/add/' + code);
   },
 
-  user_auth_ajax: function(location) {
-    return axios.get('/user/' + location)
+  del: function(code) {
+    return axios.get('/api/del/' + code);
   },
 
-  update_user_bars: function(action, bar) {
-    if (action === 'add') {
-      return axios.get('/user_bars/add/' + bar)
-    } else if (action === 'delete') {
-      return axios.get('/user_bars/delete/' + bar)
-    }
+  curr: function() {
+    return axios.get('api/curr');
   }
 
 }

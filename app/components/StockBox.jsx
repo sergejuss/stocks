@@ -12,9 +12,9 @@ class StockBox extends Component {
 
     render() {
         return (
-            <div className="col-m-6 col-4" style={{fontFamily: "Verdana"}} >
+            <div className="col-m-6 col-4" style={{fontFamily: "Trebuchet MS, Verdana"}} >
                 <div style={{backgroundColor: "#fff", height: "140px", margin: "10px", borderRadius: "6px"}} >
-                    <div style={{margin: "0 0 0 90%", padding: "10px", width: "20px", fontSize: "1em", cursor: "pointer"}}
+                    <div style={{margin: "0 0 0 90%", padding: "10px 10px 0 0", width: "20px", fontSize: "1em", cursor: "pointer"}}
                     onClick={this.handleDel} >
                         x
                     </div>

@@ -6,22 +6,22 @@ class LookupContainer extends Component {
     constructor() {
         super();
         this.handleLookup = this.handleLookup.bind(this);
-        this.handleAddRef = this.handleAddRef.bind(this);
+        this.handleAdd = this.handleAdd.bind(this);
     }
 
     handleLookup(newTerm) {
         this.props.onLookup(newTerm);
     }
 
-    handleAddRef(code) {
-        this.props.onAddRef(code);
+    handleAdd(code) {
+        this.props.onAdd(code);
     }
 
     render() {
         return (
             <div className="col-m-12 col-12">
                 <LookupForm onLookup={this.handleLookup} />
-                <LookupResults lookupResult={this.props.lookupResult} onAddRef={this.handleAddRef} />
+                <LookupResults lookupResult={this.props.lookupResult} onAdd={this.handleAdd} />
             </div>
         );
     }
@@ -30,7 +30,7 @@ class LookupContainer extends Component {
 LookupContainer.propTypes = {
     onLookup: PropTypes.func.isRequired,
     lookupResult: PropTypes.array,
-    onAddRef: PropTypes.func.isRequired
+    onAdd: PropTypes.func.isRequired
 };
 
 export default LookupContainer;

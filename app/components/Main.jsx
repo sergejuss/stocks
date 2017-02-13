@@ -1,5 +1,4 @@
 import React, { PropTypes } from 'react';
-import styles from '../styles';
 import Chart from './Chart.jsx';
 import StockContainer from '../containers/StockContainer.jsx';
 import LookupContainer from '../containers/LookupContainer.jsx';
@@ -11,7 +10,6 @@ class Main extends React.Component {
     this.handleAdd = this.handleAdd.bind(this);  
     this.handleDel = this.handleDel.bind(this);
     this.handleLookup = this.handleLookup.bind(this);
-    this.handleAddRef = this.handleAddRef.bind(this);
   }
   
   handleAdd(newCode) {    
@@ -24,11 +22,7 @@ class Main extends React.Component {
 
   handleLookup(newTerm) {
     this.props.onLookup(newTerm);
-  }
-
-  handleAddRef(code) {
-    this.props.onAddRef(code);
-  }
+  }  
 
   render() {
     var stocks = this.props.chartData.map(function(stock) {
@@ -41,10 +35,10 @@ class Main extends React.Component {
       <div>
         <div className="row">
           <div className="col-m-1 col-2" style={{height: "10px"}}></div>
-          <div className="col-m-10 col-8" style={{backgroundColor: "yellow"}}>
+          <div className="col-m-10 col-8" style={{backgroundColor: "#383839"}}>
             <Chart chartData={this.props.chartData} />
-            <StockContainer onAdd={this.handleAdd} onDel={this.handleDel} addErr={this.props.onAddErr} stocks={stocks} />
-            <LookupContainer onLookup={this.handleLookup} lookupResult={this.props.lookupResult} onAddRef={this.handleAddRef} />        
+            <StockContainer onAdd={this.handleAdd} onDel={this.handleDel} addErr={this.props.addErr} stocks={stocks} />
+            <LookupContainer onLookup={this.handleLookup} lookupResult={this.props.lookupResult} onAdd={this.handleAdd} />        
           </div>
           <div className="col-m-1 col-2" style={{height: "10px"}}></div>      
         </div>
@@ -60,8 +54,7 @@ Main.propTypes = {
   onLookup: PropTypes.func.isRequired,
   lookupResult: PropTypes.array,
   addErr: PropTypes.string,
-  chartData: PropTypes.array.isRequired,
-  onAddRef: PropTypes.func.isRequired
+  chartData: PropTypes.array.isRequired  
 }
 
 export default Main
