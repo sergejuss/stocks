@@ -11,7 +11,11 @@ module.exports = {
   },
 
   curr: function() {
-    return axios.get('api/curr');
+    return axios.get('/api/curr');
+  },
+
+  lookup: function(term) {
+    return axios.get('/api/lookup/' + term);
   }
 
 }

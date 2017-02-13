@@ -84,25 +84,15 @@ class MainContainer extends React.Component {
     this.setState({
       addErr: ""
     });
-    var url = "http://dev.markitondemand.com/Api/v2/Lookup/jsonp?input=" + newTerm;
-    function onresult(err, data) {       
-      if (err) {         
+    if (newTerm) {
+      ajax.lookup(newTerm).then(function(data) {
         this.setState({
-          lookupResult: [{error: JSON.stringify(err)}]
-        }); 
-      } else {
-        if (Array.isArray(data)) {
-          this.setState({
-            lookupResult: data.length === 0 ? [{error: "No results found."}] : data
-          }); 
-        } else {
-          this.setState({
-            lookupResult: [{error: JSON.stringify(data)}]
-          });
-        }        
-      }      
+          lookupResult: data.data.res
+        });
+      }.bind(this)).catch(function(err) {
+        console.log(err);
+      });
     }
-    jsonp(url, null, onresult.bind(this));
   }
   
   render() {

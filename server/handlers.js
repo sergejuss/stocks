@@ -102,6 +102,20 @@ module.exports = {
 
   get_current: function(req, res) {    
     res.json(chartData);
+  },
+
+  lookup: function(req, res) {
+    var url = "http://dev.markitondemand.com/Api/v2/Lookup/json?input=" + req.params.term;
+    axios.get(url).then(function(data) {      
+      if (data.data.length > 0) {
+        res.json({res: data.data});
+      } else {
+        res.json({res: [{error: "No results found."}]});
+      }
+    }).catch(function(err) {
+      console.log(err);
+      res.json({res: [{error: "No results found."}]});
+    });
   }
 
 }

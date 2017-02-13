@@ -18,5 +18,8 @@ module.exports = function(app) {
   
   app.route('/api/del/:code')
     .get(handlers.del)
+
+  app.route('/api/lookup/:term')
+    .get(handlers.lookup)
     
 }

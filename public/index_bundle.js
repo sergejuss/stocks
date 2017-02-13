@@ -21632,25 +21632,15 @@
 	      this.setState({
 	        addErr: ""
 	      });
-	      var url = "http://dev.markitondemand.com/Api/v2/Lookup/jsonp?input=" + newTerm;
-	      function onresult(err, data) {
-	        if (err) {
+	      if (newTerm) {
+	        _ajax2.default.lookup(newTerm).then(function (data) {
 	          this.setState({
-	            lookupResult: [{ error: JSON.stringify(err) }]
+	            lookupResult: data.data.res
 	          });
-	        } else {
-	          if (Array.isArray(data)) {
-	            this.setState({
-	              lookupResult: data.length === 0 ? [{ error: "No results found." }] : data
-	            });
-	          } else {
-	            this.setState({
-	              lookupResult: [{ error: JSON.stringify(data) }]
-	            });
-	          }
-	        }
+	        }.bind(this)).catch(function (err) {
+	          console.log(err);
+	        });
 	      }
-	      (0, _jsonp2.default)(url, null, onresult.bind(this));
 	    }
 	  }, {
 	    key: 'render',
@@ -21688,7 +21678,11 @@
 	  },
 
 	  curr: function curr() {
-	    return _axios2.default.get('api/curr');
+	    return _axios2.default.get('/api/curr');
+	  },
+
+	  lookup: function lookup(term) {
+	    return _axios2.default.get('/api/lookup/' + term);
 	  }
 
 	};
